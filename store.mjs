@@ -143,6 +143,16 @@ export function listMatches(dataDir, workspaceId = "", status = "all") {
   return db.prepare(`SELECT * FROM matches ${where} ORDER BY updated_at DESC LIMIT 100`).all(...params).map(hydrateMatch);
 }
 
+export function deleteMatch(dataDir, id) {
+  const db = openDb(dataDir);
+  return tx(db, () => {
+    const existing = hydrateMatch(db.prepare("SELECT * FROM matches WHERE id = ?").get(id));
+    if (!existing) return null;
+    db.prepare("DELETE FROM matches WHERE id = ?").run(id);
+    return existing;
+  });
+}
+
 export function updateMatchWithEvent(dataDir, match, event = null, revealAllPrior = false) {
   const db = openDb(dataDir);
   return tx(db, () => {
@@ -360,6 +370,14 @@ export function getReplay(dataDir, id) {
   const db = openDb(dataDir);
   const row = db.prepare("SELECT payload_json FROM replays WHERE id = ? OR match_id = ?").get(id, id);
   return row ? JSON.parse(row.payload_json) : null;
+}
+
+export function deleteReplay(dataDir, id) {
+  const db = openDb(dataDir);
+  return tx(db, () => {
+    const info = db.prepare("DELETE FROM replays WHERE id = ? OR match_id = ?").run(id, id);
+    return Number(info?.changes || 0) > 0;
+  });
 }
 
 export function validateReplayPayload(rawText) {

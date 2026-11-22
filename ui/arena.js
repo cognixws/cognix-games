@@ -38,7 +38,9 @@
     selectedSq: null, // [r, c] in Chess
     promotion: "q",
     seatDraft: ["owner", "bot:alpha", "bot:bravo", "bot:charlie"],
-    lastFoulSeq: 0
+    lastFoulSeq: 0,
+    confirmDeleteId: null,
+    confirmDeleteMatchBar: false
   };
 
   function syncContext(ctx) {
@@ -200,8 +202,17 @@
               ${m.seats.map((s) => `<span class="gm-seat-tag">${esc(s.name)}</span>`).join("")}
             </div>
             <div class="gm-card-foot">
-              <span class="gm-meta-text">Moves: ${m.seq}</span>
-              <button type="button" class="gm-btn gm-btn-primary" data-open-match="${esc(m.id)}">${m.status === "finished" ? "Review table" : "Open table"}</button>
+              ${S.confirmDeleteId === m.id ? `
+                <span class="gm-meta-text">Delete table?</span>
+                <div class="gm-card-actions">
+                  <button type="button" class="gm-btn" data-cancel-delete="1">Cancel</button>
+                  <button type="button" class="gm-btn gm-btn-danger" data-confirm-delete="${esc(m.id)}">Confirm</button>
+                </div>` : `
+                <span class="gm-meta-text">Moves: ${m.seq}</span>
+                <div class="gm-card-actions">
+                  <button type="button" class="gm-btn gm-btn-ghost" data-ask-delete="${esc(m.id)}">Delete</button>
+                  <button type="button" class="gm-btn gm-btn-primary" data-open-match="${esc(m.id)}">${m.status === "finished" ? "Review table" : "Open table"}</button>
+                </div>`}
             </div>
           </article>`;
       }).join("");
@@ -256,8 +267,17 @@
             <span class="gm-seed-badge">SHA-256</span>
           </div>
           <div class="gm-card-foot">
-            <span class="gm-meta-text">${esc(rp.id)}</span>
-            <button type="button" class="gm-btn" data-open-replay="${esc(rp.id)}">Open replay</button>
+            ${S.confirmDeleteId === rp.id ? `
+              <span class="gm-meta-text">Delete replay?</span>
+              <div class="gm-card-actions">
+                <button type="button" class="gm-btn" data-cancel-delete="1">Cancel</button>
+                <button type="button" class="gm-btn gm-btn-danger" data-confirm-del-replay="${esc(rp.id)}">Confirm</button>
+              </div>` : `
+              <span class="gm-meta-text">${esc(rp.id)}</span>
+              <div class="gm-card-actions">
+                <button type="button" class="gm-btn gm-btn-ghost" data-ask-delete="${esc(rp.id)}">Delete</button>
+                <button type="button" class="gm-btn" data-open-replay="${esc(rp.id)}">Open replay</button>
+              </div>`}
           </div>
         </article>`).join("")}</div>`;
     }
@@ -428,6 +448,8 @@
     document.getElementById("gm-pause-reason").textContent = m.config?.pauseReason || "Match is paused.";
 
     document.getElementById("gm-save-replay-btn").hidden = m.status !== "finished";
+    document.getElementById("gm-delete-match-btn").hidden = S.confirmDeleteMatchBar;
+    document.getElementById("gm-delete-match-confirm").hidden = !S.confirmDeleteMatchBar;
 
     // Stage visibility
     document.getElementById("gm-stage-holdem").hidden = m.game !== "holdem";
@@ -860,7 +882,35 @@
     S.matchId = id;
     S.view = "match";
     S.selectedSq = null;
+    S.confirmDeleteId = null;
+    S.confirmDeleteMatchBar = false;
     await refresh();
+  }
+
+  async function removeMatchById(id) {
+    try {
+      await api("/match/delete", { matchId: id });
+      S.confirmDeleteId = null;
+      S.confirmDeleteMatchBar = false;
+      if (S.matchId === id) {
+        S.matchId = null;
+        S.match = null;
+        S.view = "lobby";
+      }
+      await refresh();
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  async function removeReplayById(id) {
+    try {
+      await api("/replay/delete", { replayId: id });
+      S.confirmDeleteId = null;
+      await refresh();
+    } catch (err) {
+      showError(err.message);
+    }
   }
 
   async function sendHumanAction(actionStr) {
@@ -891,11 +941,8 @@
         payload = { workspaceId: S.workspaceId || "default", game: "holdem", title: "Hold'em 4-Max", seats: ["owner", "bot:alpha", "bot:bravo", "bot:charlie"], narrator: "bot:alpha" };
       } else if (kind === "chess") {
         payload = { workspaceId: S.workspaceId || "default", game: "chess", title: "Chess · You vs Sparring Bot", seats: ["owner", "bot:alpha"] };
-      } else if (kind === "perudo") {
-        payload = { workspaceId: S.workspaceId || "default", game: "perudo", title: "Liar's Dice Trio", seats: ["owner", "bot:alpha", "bot:bravo"] };
       } else {
-        S.spectator = true;
-        payload = { workspaceId: S.workspaceId || "default", game: "holdem", title: "Bot Exhibition (Spectator)", seats: ["bot:alpha", "bot:bravo", "bot:charlie"], narrator: "bot:alpha", spectator: true };
+        payload = { workspaceId: S.workspaceId || "default", game: "perudo", title: "Liar's Dice Trio", seats: ["owner", "bot:alpha", "bot:bravo"] };
       }
       const res = await api("/match", payload);
       S.match = res.match;
@@ -1046,6 +1093,18 @@
 
   document.getElementById("gm-resume-btn").addEventListener("click", () => void sendHumanAction("__resume"));
 
+  document.getElementById("gm-delete-match-btn").addEventListener("click", () => {
+    S.confirmDeleteMatchBar = true;
+    renderMatch();
+  });
+  document.getElementById("gm-delete-match-cancel").addEventListener("click", () => {
+    S.confirmDeleteMatchBar = false;
+    renderMatch();
+  });
+  document.getElementById("gm-delete-match-yes").addEventListener("click", () => {
+    if (S.matchId) void removeMatchById(S.matchId);
+  });
+
   document.getElementById("gm-save-replay-btn").addEventListener("click", async () => {
     if (!S.matchId) return;
     try {
@@ -1091,6 +1150,27 @@
     const openRpl = e.target.closest("[data-open-replay]");
     if (openRpl) {
       void openReplayById(openRpl.dataset.openReplay);
+      return;
+    }
+    const askDel = e.target.closest("[data-ask-delete]");
+    if (askDel) {
+      S.confirmDeleteId = askDel.dataset.askDelete;
+      renderLobby();
+      return;
+    }
+    if (e.target.closest("[data-cancel-delete]")) {
+      S.confirmDeleteId = null;
+      renderLobby();
+      return;
+    }
+    const confDel = e.target.closest("[data-confirm-delete]");
+    if (confDel) {
+      void removeMatchById(confDel.dataset.confirmDelete);
+      return;
+    }
+    const confDelRpl = e.target.closest("[data-confirm-del-replay]");
+    if (confDelRpl) {
+      void removeReplayById(confDelRpl.dataset.confirmDelReplay);
       return;
     }
     const tabBtn = e.target.closest("[data-lobby-tab]");

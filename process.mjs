@@ -9,9 +9,9 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
-  openDb, closeAll, recoverMatchesOnBoot, insertMatch, getMatch, listMatches,
+  openDb, closeAll, recoverMatchesOnBoot, insertMatch, getMatch, listMatches, deleteMatch,
   updateMatchWithEvent, listMatchEvents, recordCompletedRatings, listRatings,
-  saveReplayRecord, listReplays, getReplay, validateReplayPayload, sqliteMissing
+  saveReplayRecord, listReplays, getReplay, deleteReplay, validateReplayPayload, sqliteMissing
 } from "./store.mjs";
 import {
   createChessState, legalChessActions, applyChessAction, chooseChessBotAction, evaluateMaterial
@@ -854,6 +854,13 @@ export function createArenaService(opts = {}) {
     return fail(`Unknown tool "${req.tool}".`);
   }
 
+  async function removeMatch(matchId) {
+    const removed = deleteMatch(dataDir, String(matchId || ""));
+    if (!removed) return { ok: false, status: 404, error: "Match not found." };
+    void publishEvent("match", { matchId: removed.id, workspaceId: removed.workspaceId, deleted: true });
+    return { ok: true, deletedId: removed.id };
+  }
+
   return {
     dataDir,
     proxySecret,
@@ -862,6 +869,7 @@ export function createArenaService(opts = {}) {
     fetchKnownActors,
     createMatch,
     submitAction,
+    removeMatch,
     tickTimeouts,
     handleToolCall,
     projectMatch: (match, viewer) => projectMatch(dataDir, match, viewer),
@@ -1000,6 +1008,22 @@ export function startHttpServer(service, { port = 0, toolKey = randomBytes(24).t
         if (!m) return sendJson(res, 404, { error: "Match not found." });
         const replay = saveReplayRecord(service.dataDir, m);
         return sendJson(res, 200, { replay });
+      }
+
+      if (req.method === "POST" && u.pathname === "/match/delete") {
+        if (!checkRelaySecret(req, res)) return;
+        const body = await readJsonBody(req);
+        const out = await service.removeMatch(body.matchId || body.match_id);
+        if (!out.ok) return sendJson(res, out.status || 404, { error: out.error });
+        return sendJson(res, 200, { ok: true, deletedId: out.deletedId });
+      }
+
+      if (req.method === "POST" && u.pathname === "/replay/delete") {
+        if (!checkRelaySecret(req, res)) return;
+        const body = await readJsonBody(req);
+        const ok = deleteReplay(service.dataDir, String(body.replayId || body.id || ""));
+        if (!ok) return sendJson(res, 404, { error: "Replay not found." });
+        return sendJson(res, 200, { ok: true });
       }
 
       return sendJson(res, 404, { error: `Unknown route ${req.method} ${u.pathname}` });

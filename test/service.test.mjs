@@ -23,7 +23,7 @@ function runExecuteMjs(inputJson) {
   });
 }
 
-import { openDb, closeAll, recoverMatchesOnBoot, getMatch } from "../store.mjs";
+import { openDb, closeAll, recoverMatchesOnBoot, getMatch, listMatchEvents, listRatings, listReplays } from "../store.mjs";
 import { createArenaService, startHttpServer, sanitizeTalk } from "../process.mjs";
 
 function makeTempEnv() {
@@ -346,6 +346,25 @@ test("row 9 & HTTP + execute.mjs bridge: replay validator verifies SHA-256 seed 
       body: JSON.stringify({ game: "chess", seats: ["owner", "bot:alpha"] })
     });
     assert.equal(unauth.status, 403);
+
+    // Row 10: delete match guards relay secret, cascades match_events, and preserves ratings & replays
+    const unauthDel = await fetch(`http://127.0.0.1:${httpSrv.port}/match/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ matchId })
+    });
+    assert.equal(unauthDel.status, 403);
+
+    const okDel = await fetch(`http://127.0.0.1:${httpSrv.port}/match/delete`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-picode-proxy-secret": "sec-123" },
+      body: JSON.stringify({ matchId })
+    }).then((r) => r.json());
+    assert.equal(okDel.ok, true);
+    assert.equal(getMatch(env.dir, matchId), null);
+    assert.equal(listMatchEvents(env.dir, matchId).length, 0, "ON DELETE CASCADE must remove match_events");
+    assert.ok(listRatings(env.dir, "ws-1").length >= 2, "ratings must survive table deletion");
+    assert.equal(listReplays(env.dir, "ws-1").length, 1, "saved replay must survive table deletion");
   } finally {
     if (httpSrv) await new Promise((r) => httpSrv.server.close(r));
     env.cleanup();
