@@ -5,7 +5,7 @@
 `cognix-games` runs a single Node.js background process (`process.mjs`) paired with a thin `picode-tools/1` executor (`execute.mjs`) and two sandboxed UI pages (`ui/arena.html`, `ui/replay.html`).
 
 - **Person**: opens **Games** in a workspace tab or the **Game table** panel beside an agent, starts matches from presets or the `<dialog>` builder, plays turns directly or watches AI exhibitions in **Spectator** mode, and inspects verified `ext:games/replay` artifacts.
-- **Agent / Assistant**: calls `arena` tools (`lobby`, `create`, `state`, `act`, `history`, `save_replay`). `execute.mjs` forwards the broker-authenticated `req.context.agent` identity over loopback (`127.0.0.1`) to `process.mjs` using an ephemeral 0600 key in `<dataDir>/process.json`.
+- **Agent / Assistant**: calls `arena` tools (`lobby`, `create`, `state`, `act`, `history`, `save-replay`). `execute.mjs` forwards the broker-authenticated `req.context.agent` identity over loopback (`127.0.0.1`) to `process.mjs` using an ephemeral 0600 key in `<dataDir>/process.json`.
 - **System (`COGNIX[WS]` + `process.mjs`)**: enforces rules deterministically, strips hidden information per caller, sends surgical turn wake-ups (`POST /api/ext/v1/messages`) only to the active automated seat, publishes `ext.games.match` events for live UI refresh, enforces shot-clock fuse limits, and validates `replay.json` SHA-256 commitments via `/__picode/artifact/validate`.
 
 ## Persistence & Backup Compatibility

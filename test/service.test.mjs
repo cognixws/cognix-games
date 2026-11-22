@@ -304,6 +304,17 @@ test("row 9 & HTTP + execute.mjs bridge: replay validator verifies SHA-256 seed 
       assert.equal(r.ok, true);
     }
 
+    // Verify save-replay tool id over execute.mjs bridge
+    const saveOut = await runExecuteMjs(JSON.stringify({
+      protocol: "picode-tools/1",
+      capability: "arena",
+      tool: "save-replay",
+      context: { agent: "ag-claude", workspace: "ws-1", dataDir: env.dir },
+      arguments: { match_id: matchId }
+    }));
+    assert.equal(saveOut.status, 0);
+    assert.equal(JSON.parse(saveOut.stdout).structuredContent.verification.verified, true);
+
     const rplRes = await fetch(`http://127.0.0.1:${httpSrv.port}/replay?id=${encodeURIComponent(matchId)}`);
     assert.equal(rplRes.status, 200);
     const { replay } = await rplRes.json();

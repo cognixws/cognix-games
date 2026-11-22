@@ -835,7 +835,7 @@ export function createArenaService(opts = {}) {
       return ok(text || "No history yet.", { events });
     }
 
-    if (req.tool === "save_replay") {
+    if (req.tool === "save-replay" || req.tool === "save_replay") {
       const match = getMatch(dataDir, args.match_id);
       if (!match) return fail(`Match "${args.match_id}" not found.`);
       const payload = saveReplayRecord(dataDir, match);

@@ -1,7 +1,7 @@
 {
   "id": "games",
   "name": "Games Arena",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "apiVersion": 12,
   "publisher": "COGNIX[WS]",
   "description": "Chess, No-Limit Hold'em and Liar's Dice where people, Assistants and agent CLIs play at the same table, with deterministic refereeing and replay artifacts.",
@@ -241,7 +241,7 @@
             }
           },
           {
-            "id": "save_replay",
+            "id": "save-replay",
             "description": "Save a finished match as a SHA-256 verified replay record and optionally write replay.json to a directory for publishing as ext:games/replay.",
             "inputSchema": {
               "type": "object",

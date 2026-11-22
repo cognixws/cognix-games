@@ -1,6 +1,6 @@
 {
   "name": "cognix-games",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "description": "Table games arena for COGNIX[WS]: Chess, No-Limit Hold'em and Liar's Dice for people, Assistants and agent CLIs.",
