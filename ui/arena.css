@@ -258,10 +258,46 @@ html, body {
   cursor: pointer;
 }
 
-.gm-seg button[aria-selected="true"] {
+.gm-seg button[aria-selected="true"],
+.gm-seg button[aria-checked="true"],
+.gm-seg button[aria-pressed="true"] {
   background: var(--gm-surface);
   color: var(--gm-text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.gm-seg-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+
+.gm-seg-clock {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+}
+
+.gm-btn-icon {
+  width: var(--ctl-h);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.gm-qty-pill {
+  height: var(--ctl-h);
+  min-width: 48px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gm-border);
+  background: var(--gm-surface-2);
+  color: var(--gm-text);
+  font-weight: 700;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Alerts & Banners ──────────────────────────────────────── */
@@ -1343,9 +1379,9 @@ html, body {
   font-weight: 600;
 }
 
-/* ── Native <dialog> (Modal on Desktop, Bottom Sheet <=640px) ─ */
+/* ── Native <dialog> & Searchable Participant Picker ──────── */
 .gm-dialog {
-  width: min(520px, calc(100vw - 24px));
+  width: min(560px, calc(100vw - 24px));
   border: 1px solid var(--gm-border);
   border-radius: 14px;
   padding: 0;
@@ -1362,7 +1398,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--gm-border);
 }
 
@@ -1376,17 +1412,29 @@ html, body {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  max-height: 70vh;
+  gap: 14px;
+  max-height: 74vh;
   overflow-y: auto;
 }
 
 .gm-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   font-size: 12.5px;
   font-weight: 550;
+  min-width: 0;
+}
+
+.gm-field-lbl {
+  color: var(--gm-text);
+  font-weight: 600;
+}
+
+.gm-field-hint {
+  font-size: 12px;
+  font-weight: 450;
+  color: var(--gm-muted);
 }
 
 .gm-field-row {
@@ -1394,23 +1442,131 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .gm-seat-count-btns {
   display: inline-flex;
+  align-items: center;
   gap: 6px;
 }
 
-.gm-seat-pickers {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+/* Flat hairline-divided seat rows inside dialog (zero card-in-card) */
+.gm-seat-rows {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--gm-border);
+  border-bottom: 1px solid var(--gm-border);
 }
+
+.gm-seat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--gm-border);
+  min-width: 0;
+}
+
+.gm-seat-row:last-child {
+  border-bottom: 0;
+}
+
+.gm-seat-slot-lbl {
+  width: 64px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gm-muted);
+  white-space: nowrap;
+}
+
+.gm-picker-btn {
+  height: var(--ctl-h);
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gm-border-strong);
+  background: var(--gm-surface-2);
+  color: var(--gm-text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.gm-picker-btn:hover {
+  background: var(--gm-hover);
+  border-color: var(--gm-accent);
+}
+
+.gm-picker-btn[aria-expanded="true"] {
+  border-color: var(--gm-accent);
+  box-shadow: 0 0 0 1px var(--gm-accent);
+}
+
+.gm-picker-btn:focus-visible {
+  outline: 2px solid var(--gm-accent);
+  outline-offset: 1px;
+}
+
+.gm-picker-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gm-picker-name {
+  font-weight: 600;
+  color: var(--gm-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gm-picker-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  max-width: 68%;
+}
+
+.gm-picker-meta {
+  font-size: 11.5px;
+  color: var(--gm-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gm-kind-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--gm-muted);
+}
+
+.gm-kind-dot[data-kind="human"]     { background: #3b82f6; }
+.gm-kind-dot[data-kind="assistant"] { background: #10b981; }
+.gm-kind-dot[data-kind="agent"]     { background: #8b5cf6; }
+.gm-kind-dot[data-kind="bot"]       { background: #64748b; }
+.gm-kind-dot[data-kind="none"]      { background: transparent; border: 1.5px solid var(--gm-muted); }
 
 .gm-field-grid {
   display: grid;
-  grid-template-columns: 1fr 130px;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
 }
 
 .gm-dlg-foot {
@@ -1424,6 +1580,106 @@ html, body {
 
 .gm-dlg-foot .gm-inline-err {
   margin-right: auto;
+}
+
+/* Searchable Participant Popover (fixed inside top-layer dialog, never clipped) */
+.gm-popover {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  border: 1px solid var(--gm-border-strong);
+  background: var(--gm-surface);
+  color: var(--gm-text);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+}
+
+.gm-pop-head {
+  padding: 8px;
+  border-bottom: 1px solid var(--gm-border);
+  background: var(--gm-surface);
+}
+
+.gm-pop-head .gm-input {
+  width: 100%;
+  background: var(--gm-surface-2);
+}
+
+.gm-pop-list {
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gm-pop-group {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gm-muted);
+  padding: 7px 8px 3px;
+}
+
+.gm-pop-group:first-child {
+  padding-top: 3px;
+}
+
+.gm-pop-item {
+  height: 34px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--gm-text);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gm-pop-item:hover,
+.gm-pop-item.is-focused {
+  background: var(--gm-hover);
+}
+
+.gm-pop-item[aria-selected="true"] {
+  background: var(--gm-surface-2);
+  font-weight: 600;
+}
+
+.gm-pop-swap {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--gm-surface-2);
+  border: 1px solid var(--gm-border);
+  color: var(--gm-text);
+  white-space: nowrap;
+}
+
+.gm-pop-check {
+  color: var(--gm-accent);
+  font-weight: 750;
+  font-size: 13px;
+}
+
+.gm-pop-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 8px;
+  font-size: 12.5px;
+  color: var(--gm-muted);
 }
 
 /* ── Responsive Phone Width (390px) — Zero Overflow ────────── */
@@ -1471,9 +1727,18 @@ html, body {
   }
   .gm-community-row .gm-pcard-rank { font-size: 11px; }
   .gm-community-row .gm-pcard-suit { font-size: 15px; }
-  .gm-seat-pickers,
   .gm-field-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .gm-seg-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    height: auto;
+  }
+  .gm-seg-grid button {
+    height: 32px;
+  }
+  .gm-picker-trail {
+    max-width: 44%;
   }
   .gm-dialog {
     width: 100vw;

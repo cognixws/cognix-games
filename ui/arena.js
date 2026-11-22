@@ -37,7 +37,17 @@
     match: null,
     selectedSq: null, // [r, c] in Chess
     promotion: "q",
+    showAllChessMoves: false,
+    perudoFace: 2,
+    perudoQty: 1,
+    formGame: "holdem",
+    formClock: 45,
+    formNarrator: "",
     seatDraft: ["owner", "bot:alpha", "bot:bravo", "bot:charlie"],
+    pickerTarget: null, // { type: "seat", idx } | { type: "narrator" } | null
+    pickerTrigger: null,
+    pickerQuery: "",
+    pickerFocusIdx: 0,
     lastFoulSeq: 0,
     confirmDeleteId: null,
     confirmDeleteMatchBar: false
@@ -238,7 +248,7 @@
               <tr>
                 <td>${i + 1}</td>
                 <td><strong>${esc(r.name)}</strong> <span class="gm-meta-text">(${esc(r.kind)})</span></td>
-                <td>${esc(r.cli || "person")}</td>
+                <td>${esc(r.cli === "local" ? "Built-in · No LLM" : (r.cli || "Human"))}</td>
                 <td><strong>${Math.round(r.rating)}</strong> <span class="gm-meta-text">(${r.stats?.matches || 0}g)</span></td>
                 <td>${r.wins} / ${r.losses} / ${r.draws}</td>
                 <td>${r.stats?.strikes || 0}</td>
@@ -398,24 +408,30 @@
       ? (m.winner?.summary || "Match finished")
       : (turnSeat ? `Turn: ${turnSeat.name}${turnSeat.kind === "human" ? " (Your move)" : ""}` : "");
 
-    // Surface selector options
-    const surfSel = document.getElementById("gm-surface-select");
+    // Surface segmented selector options
+    const surfSeg = document.getElementById("gm-surface-seg");
     if (m.game === "holdem") {
-      if (surfSel.dataset.mode !== "holdem") {
-        surfSel.dataset.mode = "holdem";
-        surfSel.innerHTML = `<option value="emerald">Emerald Baize</option><option value="sapphire">Sapphire Baize</option><option value="burgundy">Burgundy Baize</option>`;
-      }
-      surfSel.value = S.feltTheme;
-      surfSel.hidden = false;
+      const opts = [
+        ["emerald", "Emerald"],
+        ["sapphire", "Sapphire"],
+        ["burgundy", "Burgundy"]
+      ];
+      surfSeg.innerHTML = opts.map(([val, lbl]) =>
+        `<button type="button" data-surf-opt="${val}" aria-pressed="${String(S.feltTheme === val)}">${lbl}</button>`
+      ).join("");
+      surfSeg.hidden = false;
     } else if (m.game === "chess" || m.game === "chess960") {
-      if (surfSel.dataset.mode !== "chess") {
-        surfSel.dataset.mode = "chess";
-        surfSel.innerHTML = `<option value="walnut">Walnut Board</option><option value="emerald">Tournament Green</option><option value="slate">Broadcast Slate</option>`;
-      }
-      surfSel.value = S.boardTheme;
-      surfSel.hidden = false;
+      const opts = [
+        ["walnut", "Walnut"],
+        ["emerald", "Green"],
+        ["slate", "Slate"]
+      ];
+      surfSeg.innerHTML = opts.map(([val, lbl]) =>
+        `<button type="button" data-surf-opt="${val}" aria-pressed="${String(S.boardTheme === val)}">${lbl}</button>`
+      ).join("");
+      surfSeg.hidden = false;
     } else {
-      surfSel.hidden = true;
+      surfSeg.hidden = true;
     }
 
     // 4-color deck button
@@ -768,28 +784,53 @@
       }).join("");
     } else if (m.game === "chess" || m.game === "chess960") {
       const preferred = ["O-O", "O-O-O", "e4", "d4", "Nf3", "c4", "Nc3", "Bc4", "Bb5", "e5", "c5", "Nf6"];
-      const quickList = [
+      const ordered = [
         ...preferred.filter((p) => legal.includes(p)),
         ...legal.filter((p) => !preferred.includes(p))
-      ].slice(0, 8);
-      const quick = quickList.map((san) =>
+      ];
+      const shown = S.showAllChessMoves ? ordered : ordered.slice(0, 8);
+      const quick = shown.map((san) =>
         `<button type="button" class="gm-btn" data-submit-act="${esc(san)}">${esc(san)}</button>`
       ).join("");
+      const moreBtn = ordered.length > 8
+        ? `<button type="button" class="gm-btn gm-btn-ghost" data-toggle-chess-moves="1">${S.showAllChessMoves ? "Fewer moves" : `All ${ordered.length} moves`}</button>`
+        : "";
       ctrls.innerHTML = `
-        <span class="gm-meta-text">Click a piece on the board or choose SAN:</span>
-        <select class="gm-select" id="gm-chess-san-select" aria-label="Legal chess move">
-          ${legal.map((san) => `<option value="${esc(san)}">${esc(san)}</option>`).join("")}
-        </select>
-        <button type="button" class="gm-btn gm-btn-primary" id="gm-chess-play-san">Play move</button>
-        ${quick}`;
+        <span class="gm-meta-text">Click a piece on the board or tap a move:</span>
+        ${quick}
+        ${moreBtn}`;
     } else if (m.game === "perudo") {
-      const bids = legal.filter((a) => a.startsWith("bid "));
+      const parsedBids = legal
+        .filter((a) => a.startsWith("bid "))
+        .map((raw) => {
+          const mBid = /^bid\s+(\d+)x([1-6])$/.exec(raw);
+          return mBid ? { raw, qty: Number(mBid[1]), face: Number(mBid[2]) } : null;
+        })
+        .filter(Boolean);
       const hasDudo = legal.includes("dudo");
+
+      const availFaces = [2, 3, 4, 5, 6, 1].filter((f) => parsedBids.some((b) => b.face === f));
+      if (availFaces.length && !availFaces.includes(S.perudoFace)) {
+        S.perudoFace = availFaces[0];
+      }
+      const qtysForFace = parsedBids.filter((b) => b.face === S.perudoFace).map((b) => b.qty);
+      if (qtysForFace.length && !qtysForFace.includes(S.perudoQty)) {
+        S.perudoQty = qtysForFace[0];
+      }
+      const minQty = qtysForFace.length ? qtysForFace[0] : 1;
+      const maxQty = qtysForFace.length ? qtysForFace[qtysForFace.length - 1] : 1;
+      const chosenBid = parsedBids.find((b) => b.face === S.perudoFace && b.qty === S.perudoQty) || parsedBids[0] || null;
+
       ctrls.innerHTML = `
-        <select class="gm-select" id="gm-perudo-bid-select" aria-label="Choose bid">
-          ${bids.map((b) => `<option value="${esc(b)}">${esc(b.replace("bid ", "Bid ").replace("x", " × face "))}</option>`).join("")}
-        </select>
-        <button type="button" class="gm-btn gm-btn-primary" id="gm-perudo-play-bid" ${bids.length ? "" : "disabled"}>Place bid</button>
+        ${availFaces.length ? `
+          <div class="gm-seg" role="group" aria-label="Die face">
+            ${availFaces.map((f) => `<button type="button" data-perudo-face="${f}" aria-pressed="${String(f === S.perudoFace)}">${f === 1 ? "1 ★" : `[${f}]`}</button>`).join("")}
+          </div>
+          <button type="button" class="gm-btn gm-btn-icon" data-perudo-step="-1" ${S.perudoQty <= minQty ? "disabled" : ""} aria-label="Decrease quantity">−</button>
+          <span class="gm-qty-pill" aria-label="Selected quantity">${S.perudoQty}×</span>
+          <button type="button" class="gm-btn gm-btn-icon" data-perudo-step="1" ${S.perudoQty >= maxQty ? "disabled" : ""} aria-label="Increase quantity">+</button>
+          <button type="button" class="gm-btn gm-btn-primary" data-submit-act="${esc(chosenBid?.raw || "")}" ${chosenBid ? "" : "disabled"}>Bid ${S.perudoQty} × [${S.perudoFace}]</button>
+        ` : ""}
         ${hasDudo ? `<button type="button" class="gm-btn gm-btn-danger" data-submit-act="dudo">Call Dudo!</button>` : ""}`;
     }
   }
@@ -940,7 +981,7 @@
       if (kind === "holdem") {
         payload = { workspaceId: S.workspaceId || "default", game: "holdem", title: "Hold'em 4-Max", seats: ["owner", "bot:alpha", "bot:bravo", "bot:charlie"], narrator: "bot:alpha" };
       } else if (kind === "chess") {
-        payload = { workspaceId: S.workspaceId || "default", game: "chess", title: "Chess · You vs Sparring Bot", seats: ["owner", "bot:alpha"] };
+        payload = { workspaceId: S.workspaceId || "default", game: "chess", title: "Chess · You vs Rule Bot", seats: ["owner", "bot:alpha"] };
       } else {
         payload = { workspaceId: S.workspaceId || "default", game: "perudo", title: "Liar's Dice Trio", seats: ["owner", "bot:alpha", "bot:bravo"] };
       }
@@ -954,90 +995,425 @@
     }
   }
 
-  /* ── New Match Dialog ────────────────────────────────────── */
+  /* ── New Match Dialog & Searchable Participant Picker ──── */
   const dlg = document.getElementById("gm-new-dialog");
+  const popEl = document.getElementById("gm-actor-popover");
+  const popSearch = document.getElementById("gm-pop-search");
+  const popList = document.getElementById("gm-pop-list");
+  const CHEVRON_SVG = '<svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+
+  const GAME_HINTS = {
+    holdem: "2–6 seats · $2,000 stacks",
+    chess: "2 seats · White vs Black",
+    chess960: "2 seats · Randomized back rank",
+    perudo: "2–6 seats · 4 dice per cup"
+  };
+
+  function actorById(id) {
+    if (!id) return { id: "", name: "None", kind: "none", meta: "Off" };
+    return S.actors.find((a) => a.id === id) || {
+      id,
+      name: id.startsWith("bot:") ? `Rule Bot ${id.slice(4)}` : id,
+      kind: id.startsWith("bot:") ? "bot" : "agent",
+      meta: id.startsWith("bot:") ? "Built-in · No LLM" : "Agent CLI"
+    };
+  }
+
+  function nextUnusedActorId() {
+    const used = new Set(S.seatDraft);
+    const liveAi = S.actors.find((a) => (a.kind === "assistant" || a.kind === "agent") && !used.has(a.id));
+    if (liveAi) return liveAi.id;
+    const freeBot = S.actors.find((a) => a.kind === "bot" && !used.has(a.id));
+    return freeBot ? freeBot.id : "bot:alpha";
+  }
+
+  function renderPickerButtonInner(actor) {
+    return `
+      <span class="gm-picker-lead">
+        <i class="gm-kind-dot" data-kind="${esc(actor.kind || "bot")}" aria-hidden="true"></i>
+        <span class="gm-picker-name">${esc(actor.name)}</span>
+      </span>
+      <span class="gm-picker-trail">
+        <span class="gm-picker-meta">${esc(actor.meta || actor.kind || "")}</span>
+        ${CHEVRON_SVG}
+      </span>`;
+  }
 
   async function openNewDialog() {
+    closeActorPopover();
     try {
       const q = S.workspaceId ? `?workspace=${encodeURIComponent(S.workspaceId)}` : "";
       const res = await api(`/actors${q}`);
       S.actors = res.actors || [];
-      if (res.settings?.shot_clock_sec) {
-        document.getElementById("gm-f-clock").value = String(res.settings.shot_clock_sec);
+      if (res.settings?.shot_clock_sec && [30, 45, 90, 180].includes(Number(res.settings.shot_clock_sec))) {
+        S.formClock = Number(res.settings.shot_clock_sec);
       }
     } catch {
       S.actors = [
-        { id: "owner", name: "You (Person)", kind: "human" },
-        { id: "bot:alpha", name: "Sparring Bot Alpha", kind: "bot" },
-        { id: "bot:bravo", name: "Sparring Bot Bravo", kind: "bot" }
+        { id: "owner", name: "You", kind: "human", meta: "Human" },
+        { id: "bot:alpha", name: "Rule Bot Alpha", kind: "bot", meta: "Built-in · No LLM" },
+        { id: "bot:bravo", name: "Rule Bot Bravo", kind: "bot", meta: "Built-in · No LLM" },
+        { id: "bot:charlie", name: "Rule Bot Charlie", kind: "bot", meta: "Built-in · No LLM" },
+        { id: "bot:delta", name: "Rule Bot Delta", kind: "bot", meta: "Built-in · No LLM" },
+        { id: "bot:echo", name: "Rule Bot Echo", kind: "bot", meta: "Built-in · No LLM" },
+        { id: "bot:foxtrot", name: "Rule Bot Foxtrot", kind: "bot", meta: "Built-in · No LLM" }
       ];
     }
-    syncDialogSeats();
+
+    // Ensure every drafted seat still resolves cleanly (replace stale stopped ids with unused actors)
+    const validIds = new Set(S.actors.map((a) => a.id));
+    S.seatDraft = S.seatDraft.map((id) => (validIds.has(id) ? id : "bot:alpha"));
+    for (let i = 0; i < S.seatDraft.length; i++) {
+      if (S.seatDraft.indexOf(S.seatDraft[i]) !== i) {
+        S.seatDraft[i] = nextUnusedActorId();
+      }
+    }
+    if (S.formNarrator && !validIds.has(S.formNarrator)) {
+      S.formNarrator = "";
+    }
+
+    syncDialogControls();
     document.getElementById("gm-dlg-err").textContent = "";
     dlg.showModal();
   }
 
-  function syncDialogSeats() {
-    const game = document.getElementById("gm-f-game").value;
+  function syncDialogControls() {
+    const game = S.formGame;
     const isChess = game === "chess" || game === "chess960";
-    if (isChess) S.seatDraft = S.seatDraft.slice(0, 2);
-    while (S.seatDraft.length < 2) S.seatDraft.push("bot:alpha");
+    if (isChess && S.seatDraft.length > 2) S.seatDraft = S.seatDraft.slice(0, 2);
+    while (S.seatDraft.length < 2) S.seatDraft.push(nextUnusedActorId());
 
-    document.getElementById("gm-seat-count-btns").hidden = isChess;
+    for (const btn of document.querySelectorAll("[data-game-opt]")) {
+      btn.setAttribute("aria-checked", String(btn.dataset.gameOpt === game));
+    }
+    for (const btn of document.querySelectorAll("[data-clock-opt]")) {
+      btn.setAttribute("aria-checked", String(Number(btn.dataset.clockOpt) === S.formClock));
+    }
+    document.getElementById("gm-f-game-hint").textContent = GAME_HINTS[game] || "";
 
-    const optsHtml = (selected) => S.actors.map((a) =>
-      `<option value="${esc(a.id)}" ${a.id === selected ? "selected" : ""}>${esc(a.name)} (${esc(a.kind)})</option>`
-    ).join("");
+    const liveAis = S.actors.filter((a) => a.kind === "assistant" || a.kind === "agent");
+    document.getElementById("gm-fill-ai").hidden = liveAis.length === 0;
+    document.getElementById("gm-add-seat").hidden = isChess || S.seatDraft.length >= 6;
+    document.getElementById("gm-seat-summary").textContent = isChess ? "· 2 seats" : `· ${S.seatDraft.length} of 6`;
 
-    document.getElementById("gm-seat-pickers").innerHTML = S.seatDraft.map((val, idx) => `
-      <label class="gm-field">
-        <span>${isChess ? (idx === 0 ? "White (Seat 1)" : "Black (Seat 2)") : `Seat ${idx + 1}`}</span>
-        <select class="gm-select" data-seat-idx="${idx}">${optsHtml(val)}</select>
-      </label>`).join("");
+    const canRemove = !isChess && S.seatDraft.length > 2;
+    document.getElementById("gm-seat-pickers").innerHTML = S.seatDraft.map((val, idx) => {
+      const actor = actorById(val);
+      const seatLabel = isChess ? (idx === 0 ? "White" : "Black") : `Seat ${idx + 1}`;
+      const isOpen = S.pickerTarget?.type === "seat" && S.pickerTarget.idx === idx;
+      return `
+        <div class="gm-seat-row">
+          <span class="gm-seat-slot-lbl">${esc(seatLabel)}</span>
+          <button type="button" class="gm-picker-btn" data-pick-seat="${idx}" aria-haspopup="listbox" aria-expanded="${String(isOpen)}">
+            ${renderPickerButtonInner(actor)}
+          </button>
+          ${canRemove ? `
+            <button type="button" class="gm-btn gm-btn-ghost gm-btn-icon" data-remove-seat="${idx}" aria-label="Remove ${esc(seatLabel)}">
+              <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>` : ""}
+        </div>`;
+    }).join("");
 
-    const narSel = document.getElementById("gm-f-narrator");
-    narSel.innerHTML = `<option value="">None</option>` + S.actors.filter((a) => a.kind !== "human").map((a) =>
-      `<option value="${esc(a.id)}">${esc(a.name)}</option>`
-    ).join("");
+    const narBtn = document.getElementById("gm-narrator-btn");
+    const narActor = S.formNarrator ? actorById(S.formNarrator) : { id: "", name: "None", kind: "none", meta: "Off" };
+    narBtn.setAttribute("aria-expanded", String(S.pickerTarget?.type === "narrator"));
+    narBtn.innerHTML = renderPickerButtonInner(narActor);
+  }
+
+  function currentPopoverOptions() {
+    if (!S.pickerTarget) return [];
+    const isNarrator = S.pickerTarget.type === "narrator";
+    const q = S.pickerQuery.trim().toLowerCase();
+    const pool = [];
+
+    if (isNarrator) {
+      pool.push({ id: "", name: "None", kind: "none", meta: "No commentary", group: "Commentator" });
+    }
+    for (const a of S.actors) {
+      if (isNarrator && a.kind === "human") continue;
+      let group = "Local rule bots · No LLM";
+      if (a.kind === "human") group = "Person";
+      else if (a.kind === "assistant") group = "Assistants · Live AI";
+      else if (a.kind === "agent") group = "Workspace agents · Running";
+      pool.push({ ...a, group });
+    }
+
+    if (!q) return pool;
+    return pool.filter((item) =>
+      `${item.name} ${item.meta || ""} ${item.cli || ""} ${item.group}`.toLowerCase().includes(q)
+    );
+  }
+
+  function positionActorPopover() {
+    if (popEl.hidden || !S.pickerTrigger) return;
+    const rect = S.pickerTrigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(Math.max(rect.width, 320), vw - 24);
+    const left = Math.max(12, Math.min(rect.left, vw - width - 12));
+
+    const spaceBelow = vh - rect.bottom - 14;
+    const spaceAbove = rect.top - 14;
+    popEl.style.width = `${Math.round(width)}px`;
+    popEl.style.left = `${Math.round(left)}px`;
+
+    if (spaceBelow >= 220 || spaceBelow >= spaceAbove) {
+      popEl.style.top = `${Math.round(rect.bottom + 6)}px`;
+      popEl.style.bottom = "auto";
+      popEl.style.maxHeight = `${Math.max(150, Math.min(310, Math.floor(spaceBelow)))}px`;
+    } else {
+      popEl.style.bottom = `${Math.round(vh - rect.top + 6)}px`;
+      popEl.style.top = "auto";
+      popEl.style.maxHeight = `${Math.max(150, Math.min(310, Math.floor(spaceAbove)))}px`;
+    }
+  }
+
+  function renderActorPopoverList() {
+    const items = currentPopoverOptions();
+    if (!items.length) {
+      popList.innerHTML = `
+        <div class="gm-pop-empty">
+          <span>No matching participants found.</span>
+          <button type="button" class="gm-btn" id="gm-pop-clear">Clear</button>
+        </div>`;
+      return;
+    }
+
+    S.pickerFocusIdx = Math.max(0, Math.min(S.pickerFocusIdx, items.length - 1));
+    const currentId = S.pickerTarget?.type === "narrator"
+      ? S.formNarrator
+      : S.seatDraft[S.pickerTarget?.idx ?? 0];
+    const isChess = S.formGame === "chess" || S.formGame === "chess960";
+
+    let html = "";
+    let lastGroup = "";
+    items.forEach((item, idx) => {
+      if (item.group !== lastGroup) {
+        lastGroup = item.group;
+        html += `<div class="gm-pop-group">${esc(item.group)}</div>`;
+      }
+      const isSelected = item.id === currentId;
+      let otherSeatIdx = -1;
+      if (S.pickerTarget?.type === "seat" && item.id) {
+        otherSeatIdx = S.seatDraft.findIndex((sid, sIdx) => sid === item.id && sIdx !== S.pickerTarget.idx);
+      }
+      const otherLabel = otherSeatIdx >= 0
+        ? (isChess ? (otherSeatIdx === 0 ? "White ⇄" : "Black ⇄") : `Seat ${otherSeatIdx + 1} ⇄`)
+        : "";
+
+      html += `
+        <button type="button" role="option" class="gm-pop-item${idx === S.pickerFocusIdx ? " is-focused" : ""}" data-pop-idx="${idx}" data-pop-id="${esc(item.id)}" aria-selected="${String(isSelected)}">
+          <span class="gm-picker-lead">
+            <i class="gm-kind-dot" data-kind="${esc(item.kind)}" aria-hidden="true"></i>
+            <span class="gm-picker-name">${esc(item.name)}</span>
+          </span>
+          <span class="gm-picker-trail">
+            ${otherLabel ? `<span class="gm-pop-swap">${esc(otherLabel)}</span>` : ""}
+            <span class="gm-picker-meta">${esc(item.meta || "")}</span>
+            ${isSelected ? '<span class="gm-pop-check" aria-hidden="true">✓</span>' : ""}
+          </span>
+        </button>`;
+    });
+    popList.innerHTML = html;
+    const focused = popList.querySelector(".gm-pop-item.is-focused");
+    focused?.scrollIntoView?.({ block: "nearest" });
+  }
+
+  function openActorPopover(target, triggerEl) {
+    if (
+      !popEl.hidden &&
+      S.pickerTarget?.type === target.type &&
+      S.pickerTarget?.idx === target.idx
+    ) {
+      closeActorPopover();
+      return;
+    }
+    S.pickerTarget = target;
+    S.pickerTrigger = triggerEl;
+    S.pickerQuery = "";
+    popSearch.value = "";
+    const opts = currentPopoverOptions();
+    const currentId = target.type === "narrator" ? S.formNarrator : S.seatDraft[target.idx];
+    const curPos = opts.findIndex((o) => o.id === currentId);
+    S.pickerFocusIdx = curPos >= 0 ? curPos : 0;
+
+    syncDialogControls();
+    // Re-bind triggerEl after syncDialogControls re-rendered seat buttons
+    S.pickerTrigger = target.type === "narrator"
+      ? document.getElementById("gm-narrator-btn")
+      : document.querySelector(`[data-pick-seat="${target.idx}"]`);
+
+    popEl.hidden = false;
+    renderActorPopoverList();
+    positionActorPopover();
+    requestAnimationFrame(() => popSearch.focus());
+  }
+
+  function closeActorPopover(restoreFocus = false) {
+    if (popEl.hidden && !S.pickerTarget) return;
+    const prevTarget = S.pickerTarget;
+    popEl.hidden = true;
+    S.pickerTarget = null;
+    S.pickerTrigger = null;
+    syncDialogControls();
+    if (restoreFocus && prevTarget) {
+      const btn = prevTarget.type === "narrator"
+        ? document.getElementById("gm-narrator-btn")
+        : document.querySelector(`[data-pick-seat="${prevTarget.idx}"]`);
+      btn?.focus?.();
+    }
+  }
+
+  function commitActorChoice(chosenId) {
+    if (!S.pickerTarget) return;
+    if (S.pickerTarget.type === "narrator") {
+      S.formNarrator = chosenId;
+    } else {
+      const idx = S.pickerTarget.idx;
+      const existingIdx = S.seatDraft.findIndex((sid, sIdx) => sid === chosenId && sIdx !== idx);
+      if (existingIdx >= 0) {
+        // Cleanly swap seats so two seats never share the same actorId
+        S.seatDraft[existingIdx] = S.seatDraft[idx];
+      }
+      S.seatDraft[idx] = chosenId;
+    }
+    closeActorPopover(true);
   }
 
   /* ── Event Listeners ─────────────────────────────────────── */
   document.getElementById("gm-open-new").addEventListener("click", openNewDialog);
-  document.getElementById("gm-dlg-close").addEventListener("click", () => dlg.close());
-  document.getElementById("gm-dlg-cancel").addEventListener("click", () => dlg.close());
-  document.getElementById("gm-f-game").addEventListener("change", syncDialogSeats);
+  document.getElementById("gm-dlg-close").addEventListener("click", () => { closeActorPopover(); dlg.close(); });
+  document.getElementById("gm-dlg-cancel").addEventListener("click", () => { closeActorPopover(); dlg.close(); });
+  dlg.addEventListener("close", () => closeActorPopover());
+  dlg.addEventListener("cancel", (e) => {
+    if (!popEl.hidden) {
+      e.preventDefault();
+      closeActorPopover(true);
+    }
+  });
+  document.getElementById("gm-dlg-body").addEventListener("scroll", positionActorPopover, { passive: true });
+  window.addEventListener("resize", positionActorPopover, { passive: true });
+
+  dlg.addEventListener("click", (e) => {
+    const gameBtn = e.target.closest("[data-game-opt]");
+    if (gameBtn) {
+      closeActorPopover();
+      S.formGame = gameBtn.dataset.gameOpt;
+      if (S.formGame !== "chess" && S.formGame !== "chess960" && S.seatDraft.length < 3) {
+        S.seatDraft.push(nextUnusedActorId());
+      }
+      syncDialogControls();
+      return;
+    }
+    const clockBtn = e.target.closest("[data-clock-opt]");
+    if (clockBtn) {
+      S.formClock = Number(clockBtn.dataset.clockOpt);
+      syncDialogControls();
+      return;
+    }
+    const seatTrig = e.target.closest("[data-pick-seat]");
+    if (seatTrig) {
+      openActorPopover({ type: "seat", idx: Number(seatTrig.dataset.pickSeat) }, seatTrig);
+      return;
+    }
+    const narTrig = e.target.closest("#gm-narrator-btn");
+    if (narTrig) {
+      openActorPopover({ type: "narrator" }, narTrig);
+      return;
+    }
+    const remBtn = e.target.closest("[data-remove-seat]");
+    if (remBtn) {
+      closeActorPopover();
+      const rIdx = Number(remBtn.dataset.removeSeat);
+      if (S.seatDraft.length > 2 && !Number.isNaN(rIdx)) {
+        S.seatDraft.splice(rIdx, 1);
+        syncDialogControls();
+      }
+      return;
+    }
+    const popOpt = e.target.closest("[data-pop-idx]");
+    if (popOpt) {
+      commitActorChoice(popOpt.dataset.popId);
+      return;
+    }
+    if (e.target.closest("#gm-pop-clear")) {
+      S.pickerQuery = "";
+      popSearch.value = "";
+      S.pickerFocusIdx = 0;
+      renderActorPopoverList();
+      popSearch.focus();
+      return;
+    }
+    if (!popEl.hidden && !e.target.closest("#gm-actor-popover")) {
+      closeActorPopover();
+    }
+  });
+
+  popSearch.addEventListener("input", () => {
+    S.pickerQuery = popSearch.value;
+    S.pickerFocusIdx = 0;
+    renderActorPopoverList();
+  });
+
+  popEl.addEventListener("keydown", (e) => {
+    const items = currentPopoverOptions();
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      closeActorPopover(true);
+      return;
+    }
+    if (e.key === "ArrowDown" && items.length) {
+      e.preventDefault();
+      S.pickerFocusIdx = (S.pickerFocusIdx + 1) % items.length;
+      renderActorPopoverList();
+    } else if (e.key === "ArrowUp" && items.length) {
+      e.preventDefault();
+      S.pickerFocusIdx = (S.pickerFocusIdx - 1 + items.length) % items.length;
+      renderActorPopoverList();
+    } else if (e.key === "Enter" && items.length) {
+      e.preventDefault();
+      const pick = items[S.pickerFocusIdx];
+      if (pick) commitActorChoice(pick.id);
+    }
+  });
 
   document.getElementById("gm-add-seat").addEventListener("click", () => {
+    closeActorPopover();
     if (S.seatDraft.length < 6) {
-      S.seatDraft.push(`bot:${S.seatDraft.length + 1}`);
-      syncDialogSeats();
-    }
-  });
-  document.getElementById("gm-rem-seat").addEventListener("click", () => {
-    if (S.seatDraft.length > 2) {
-      S.seatDraft.pop();
-      syncDialogSeats();
+      S.seatDraft.push(nextUnusedActorId());
+      syncDialogControls();
     }
   });
 
-  document.getElementById("gm-seat-pickers").addEventListener("change", (e) => {
-    const idx = Number(e.target.dataset.seatIdx);
-    if (!Number.isNaN(idx)) S.seatDraft[idx] = e.target.value;
+  document.getElementById("gm-fill-ai").addEventListener("click", () => {
+    closeActorPopover();
+    const liveAis = S.actors.filter((a) => a.kind === "assistant" || a.kind === "agent");
+    if (!liveAis.length) return;
+    const count = S.seatDraft.length;
+    const next = ["owner"];
+    for (const ai of liveAis) {
+      if (next.length >= count) break;
+      next.push(ai.id);
+    }
+    for (const b of S.actors.filter((a) => a.kind === "bot")) {
+      if (next.length >= count) break;
+      if (!next.includes(b.id)) next.push(b.id);
+    }
+    S.seatDraft = next.slice(0, count);
+    syncDialogControls();
   });
 
   document.getElementById("gm-new-form").addEventListener("submit", async (e) => {
     e.preventDefault();
+    closeActorPopover();
     const errEl = document.getElementById("gm-dlg-err");
     errEl.textContent = "";
-    const clock = Number(document.getElementById("gm-f-clock").value || 45);
-    if (clock < 10 || clock > 600) {
-      errEl.textContent = "Turn clock must be between 10 and 600 seconds.";
-      return;
-    }
+    const clock = Number(S.formClock || 45);
     try {
-      const game = document.getElementById("gm-f-game").value;
+      const game = S.formGame;
       const title = document.getElementById("gm-f-title").value.trim();
-      const narrator = document.getElementById("gm-f-narrator").value;
+      const narrator = S.formNarrator;
       const allBots = S.seatDraft.every((id) => id !== "owner");
       if (allBots) S.spectator = true;
       const res = await api("/match", {
@@ -1069,9 +1445,11 @@
 
   document.getElementById("gm-error-retry").addEventListener("click", () => void refresh());
 
-  document.getElementById("gm-surface-select").addEventListener("change", (e) => {
-    if (S.match?.game === "holdem") S.feltTheme = e.target.value;
-    else S.boardTheme = e.target.value;
+  document.getElementById("gm-surface-seg").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-surf-opt]");
+    if (!btn) return;
+    if (S.match?.game === "holdem") S.feltTheme = btn.dataset.surfOpt;
+    else S.boardTheme = btn.dataset.surfOpt;
     renderMatch();
   });
 
@@ -1198,14 +1576,21 @@
       void sendHumanAction(actBtn.dataset.submitAct);
       return;
     }
-    if (e.target.closest("#gm-chess-play-san")) {
-      const sel = document.getElementById("gm-chess-san-select");
-      if (sel?.value) void sendHumanAction(sel.value);
+    if (e.target.closest("[data-toggle-chess-moves]")) {
+      S.showAllChessMoves = !S.showAllChessMoves;
+      if (S.match) renderActionDock(S.match);
       return;
     }
-    if (e.target.closest("#gm-perudo-play-bid")) {
-      const sel = document.getElementById("gm-perudo-bid-select");
-      if (sel?.value) void sendHumanAction(sel.value);
+    const pFace = e.target.closest("[data-perudo-face]");
+    if (pFace) {
+      S.perudoFace = Number(pFace.dataset.perudoFace);
+      if (S.match) renderActionDock(S.match);
+      return;
+    }
+    const pStep = e.target.closest("[data-perudo-step]");
+    if (pStep) {
+      S.perudoQty += Number(pStep.dataset.perudoStep);
+      if (S.match) renderActionDock(S.match);
       return;
     }
     const sq = e.target.closest(".gm-sq");

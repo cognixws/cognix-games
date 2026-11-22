@@ -94,6 +94,37 @@ export function createHostClient(env = process.env) {
   };
 }
 
+const CLI_LABELS = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  agy: "Antigravity",
+  grok: "Grok",
+  pi: "Pi",
+  opencode: "OpenCode",
+  omp: "Omp",
+  muse: "Muse Code",
+  local: "Built-in · No LLM"
+};
+
+export function formatCliLabel(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  const parts = s.split(/\s+/);
+  const base = parts[0].toLowerCase();
+  const baseLabel = CLI_LABELS[base] || parts[0];
+  const mIdx = parts.indexOf("--model");
+  const model = mIdx >= 0 && parts[mIdx + 1] ? parts[mIdx + 1] : "";
+  return model ? `${baseLabel} (${model})` : baseLabel;
+}
+
+const LOCAL_RULE_BOTS = [
+  { id: "bot:alpha", name: "Rule Bot Alpha" },
+  { id: "bot:bravo", name: "Rule Bot Bravo" },
+  { id: "bot:charlie", name: "Rule Bot Charlie" },
+  { id: "bot:delta", name: "Rule Bot Delta" },
+  { id: "bot:echo", name: "Rule Bot Echo" },
+  { id: "bot:foxtrot", name: "Rule Bot Foxtrot" }
+];
 // Current active seat index in match.seats (-1 when finished)
 export function currentTurnSeatIdx(match) {
   if (match.status !== "active") return -1;
@@ -247,30 +278,97 @@ export function createArenaService(opts = {}) {
   }
 
   async function fetchKnownActors(workspaceId = "") {
-    const out = [
-      { id: "owner", name: "You (Person)", kind: "human", cli: "", running: true, state: "ready" },
-      { id: "bot:alpha", name: "Sparring Bot Alpha", kind: "bot", cli: "local", running: true, state: "ready" },
-      { id: "bot:bravo", name: "Sparring Bot Bravo", kind: "bot", cli: "local", running: true, state: "ready" },
-      { id: "bot:charlie", name: "Sparring Bot Charlie", kind: "bot", cli: "local", running: true, state: "ready" }
-    ];
+    const human = {
+      id: "owner",
+      name: "You",
+      kind: "human",
+      cli: "",
+      cliLabel: "Human",
+      meta: "Human",
+      running: true,
+      state: "ready"
+    };
+    const assistants = [];
+    const agents = [];
+    const wsNames = new Map();
+
+    try {
+      const wsRes = await host.call("/api/ext/v1/workspaces");
+      for (const w of wsRes?.workspaces || []) {
+        if (w?.id && w?.name) wsNames.set(w.id, w.name);
+      }
+    } catch { /* standalone or workspace read unavailable */ }
+
     try {
       const res = await host.call("/api/ext/v1/agents");
       const list = Array.isArray(res?.agents) ? res.agents : [];
       for (const a of list) {
-        const isAst = a.workspaceId === "__assistant__" || a.workspaceId === "ws_assistant";
-        if (!isAst && workspaceId && a.workspaceId !== workspaceId) continue;
-        out.push({
-          id: a.id,
-          name: a.name || a.id,
-          kind: isAst ? "assistant" : "agent",
-          cli: a.cli || "",
-          workspaceId: a.workspaceId || "",
-          running: Boolean(a.running),
-          state: a.state || ""
-        });
+        if (!a?.running) continue;
+        const isAst = a.workspaceId === "__assistant__" || a.workspaceId === "ws_assistant" || String(a.id || "").startsWith("assistant-");
+        const cliLabel = formatCliLabel(a.cli);
+        if (isAst) {
+          assistants.push({
+            id: a.id,
+            name: a.name || a.id,
+            kind: "assistant",
+            cli: a.cli || "",
+            cliLabel: cliLabel || "Assistant",
+            meta: cliLabel ? `Assistant · ${cliLabel}` : "Assistant",
+            workspaceId: a.workspaceId || "",
+            running: true,
+            state: a.state || "idle"
+          });
+        } else {
+          const wsName = wsNames.get(a.workspaceId) || "";
+          const runtime = cliLabel || "Agent CLI";
+          agents.push({
+            id: a.id,
+            name: a.name || a.id,
+            kind: "agent",
+            cli: a.cli || "",
+            cliLabel: runtime,
+            workspaceId: a.workspaceId || "",
+            workspaceName: wsName,
+            inCurrentWorkspace: Boolean(workspaceId && a.workspaceId === workspaceId),
+            meta: wsName ? `${runtime} · ${wsName}` : runtime,
+            running: true,
+            state: a.state || "idle"
+          });
+        }
       }
     } catch { /* standalone fallback */ }
-    return out;
+
+    assistants.sort((x, y) => x.name.localeCompare(y.name));
+    agents.sort((x, y) => {
+      if (x.inCurrentWorkspace !== y.inCurrentWorkspace) return x.inCurrentWorkspace ? -1 : 1;
+      return x.name.localeCompare(y.name);
+    });
+
+    // Disambiguate any identical display names among live Assistants / Agents
+    const counts = new Map();
+    for (const item of [...assistants, ...agents]) {
+      const key = `${item.kind}:${item.name.toLowerCase()}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    for (const item of [...assistants, ...agents]) {
+      const key = `${item.kind}:${item.name.toLowerCase()}`;
+      if ((counts.get(key) || 0) > 1) {
+        item.name = `${item.name} (${String(item.id).slice(-4)})`;
+      }
+    }
+
+    const bots = LOCAL_RULE_BOTS.map((b) => ({
+      id: b.id,
+      name: b.name,
+      kind: "bot",
+      cli: "local",
+      cliLabel: "Built-in · No LLM",
+      meta: "Built-in · No LLM",
+      running: true,
+      state: "ready"
+    }));
+
+    return [human, ...assistants, ...agents, ...bots];
   }
 
   async function resolveSeatSpec(spec, idx, knownActors) {
@@ -289,12 +387,16 @@ export function createArenaService(opts = {}) {
       return { seatIdx: idx, actorId: "owner", name: "You", kind: "human", cli: "" };
     }
     if (low === "bot" || low.startsWith("bot:")) {
-      const tag = low === "bot" ? `bot:${idx + 1}` : low;
-      const found = knownActors.find((a) => a.id === tag);
+      const fallbackBot = LOCAL_RULE_BOTS[idx % LOCAL_RULE_BOTS.length];
+      const numMatch = /^bot:(\d+)$/.exec(low);
+      const mappedId = low === "bot"
+        ? fallbackBot.id
+        : (numMatch ? (LOCAL_RULE_BOTS[(Number(numMatch[1]) - 1) % LOCAL_RULE_BOTS.length]?.id || low) : low);
+      const found = knownActors.find((a) => a.id === mappedId) || LOCAL_RULE_BOTS.find((b) => b.id === mappedId);
       return {
         seatIdx: idx,
-        actorId: tag,
-        name: found ? found.name : `Sparring Bot ${idx + 1}`,
+        actorId: mappedId,
+        name: found ? found.name : `Rule Bot ${idx + 1}`,
         kind: "bot",
         cli: "local"
       };

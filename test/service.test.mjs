@@ -32,12 +32,22 @@ function makeTempEnv() {
   const hostClient = {
     async call(path, opts = {}) {
       calls.push({ path, method: opts.method || "GET", body: opts.body });
+      if (path === "/api/ext/v1/workspaces") {
+        return {
+          workspaces: [
+            { id: "ws-1", name: "Arena Lab" },
+            { id: "ws-2", name: "Other Repo" }
+          ]
+        };
+      }
       if (path === "/api/ext/v1/agents") {
         return {
           agents: [
-            { id: "ag-claude", name: "Claude Tactician", cli: "claude-code", workspaceId: "ws-1", running: true, state: "idle" },
+            { id: "ag-claude", name: "Claude Tactician", cli: "claude-code --model opus", workspaceId: "ws-1", running: true, state: "idle" },
             { id: "ag-codex", name: "Codex Grinder", cli: "codex", workspaceId: "ws-1", running: true, state: "idle" },
-            { id: "ast-narrator", name: "Caster", cli: "pi", workspaceId: "__assistant__", running: true, state: "idle" }
+            { id: "ag-stopped", name: "Dead Worktree Agent", cli: "claude-code", workspaceId: "ws-1", running: false, state: "" },
+            { id: "ast-narrator", name: "Caster", cli: "pi", workspaceId: "ws_assistant", running: true, state: "idle" },
+            { id: "ast-deleted", name: "Old Deleted Assistant", cli: "omp", workspaceId: "ws_assistant", running: false, state: "" }
           ]
         };
       }
@@ -367,6 +377,35 @@ test("row 9 & HTTP + execute.mjs bridge: replay validator verifies SHA-256 seed 
     assert.equal(listReplays(env.dir, "ws-1").length, 1, "saved replay must survive table deletion");
   } finally {
     if (httpSrv) await new Promise((r) => httpSrv.server.close(r));
+    env.cleanup();
+  }
+});
+
+test("row 11: fetchKnownActors filters out stopped agents, enriches CLI/workspace metadata and exposes Rule Bots", async () => {
+  const env = makeTempEnv();
+  try {
+    const actors = await env.service.fetchKnownActors("ws-1");
+    const ids = actors.map((a) => a.id);
+    assert.equal(ids.includes("ag-stopped"), false, "stopped workspace agent must be hidden");
+    assert.equal(ids.includes("ast-deleted"), false, "soft-deleted/stopped assistant must be hidden");
+
+    const human = actors.find((a) => a.id === "owner");
+    assert.equal(human.name, "You");
+    assert.equal(human.meta, "Human");
+
+    const ast = actors.find((a) => a.id === "ast-narrator");
+    assert.equal(ast.kind, "assistant");
+    assert.equal(ast.meta, "Assistant · Pi");
+
+    const claude = actors.find((a) => a.id === "ag-claude");
+    assert.equal(claude.kind, "agent");
+    assert.equal(claude.meta, "Claude Code (opus) · Arena Lab");
+
+    const bots = actors.filter((a) => a.kind === "bot");
+    assert.equal(bots.length, 6, "6 distinct local Rule Bots support up to 6-max tables without collision");
+    assert.equal(bots[0].name, "Rule Bot Alpha");
+    assert.equal(bots[0].meta, "Built-in · No LLM");
+  } finally {
     env.cleanup();
   }
 });

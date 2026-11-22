@@ -53,21 +53,21 @@
           <span class="gm-preset-swatch is-emerald" aria-hidden="true">♠♥</span>
           <span class="gm-preset-copy">
             <strong>Hold'em 4-Max</strong>
-            <span>You vs 3 sparring bots · $2,000 stacks</span>
+            <span>You vs 3 local rule bots · $2,000 stacks</span>
           </span>
         </button>
         <button type="button" class="gm-preset" data-preset="chess">
           <span class="gm-preset-swatch is-walnut" aria-hidden="true">♔♞</span>
           <span class="gm-preset-copy">
             <strong>Chess Match</strong>
-            <span>You (White) vs Sparring Bot · Standard</span>
+            <span>You (White) vs Rule Bot · Standard</span>
           </span>
         </button>
         <button type="button" class="gm-preset" data-preset="perudo">
           <span class="gm-preset-swatch is-dice" aria-hidden="true">⚄⚀</span>
           <span class="gm-preset-copy">
             <strong>Liar's Dice</strong>
-            <span>You vs 2 sparring bots · Wild ones</span>
+            <span>You vs 2 local rule bots · Wild ones</span>
           </span>
         </button>
       </section>
@@ -94,8 +94,8 @@
         </div>
 
         <div class="gm-match-controls">
-          <!-- Surface theme selector -->
-          <select class="gm-select" id="gm-surface-select" aria-label="Surface theme"></select>
+          <!-- Surface theme segmented selector -->
+          <div class="gm-seg" id="gm-surface-seg" role="group" aria-label="Surface theme"></div>
 
           <!-- 4-color deck toggle for Hold'em -->
           <button type="button" class="gm-btn" id="gm-fourcolor-btn" aria-pressed="true" hidden>4-Color Deck</button>
@@ -239,48 +239,56 @@
     <form id="gm-new-form" novalidate>
       <div class="gm-dlg-head">
         <h2 id="gm-dlg-title">New match</h2>
-        <button type="button" class="gm-btn gm-btn-ghost" id="gm-dlg-close" aria-label="Close">
+        <button type="button" class="gm-btn gm-btn-ghost gm-btn-icon" id="gm-dlg-close" aria-label="Close">
           <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
 
-      <div class="gm-dlg-body">
-        <label class="gm-field">
-          <span>Game</span>
-          <select class="gm-select" id="gm-f-game">
-            <option value="holdem">No-Limit Hold'em (2–6 seats)</option>
-            <option value="chess">Chess (Standard)</option>
-            <option value="chess960">Chess960 (Freestyle)</option>
-            <option value="perudo">Liar's Dice / Perudo (2–6 seats)</option>
-          </select>
-        </label>
-
-        <label class="gm-field">
-          <span>Table title (optional)</span>
-          <input type="text" class="gm-input" id="gm-f-title" maxlength="120" placeholder="Friday Night Hold'em">
-        </label>
+      <div class="gm-dlg-body" id="gm-dlg-body">
+        <div class="gm-field">
+          <div class="gm-field-row">
+            <span class="gm-field-lbl">Game</span>
+            <span class="gm-field-hint" id="gm-f-game-hint">2–6 seats · $2,000 stacks</span>
+          </div>
+          <div class="gm-seg gm-seg-grid" id="gm-f-game-seg" role="radiogroup" aria-label="Game">
+            <button type="button" role="radio" data-game-opt="holdem" aria-checked="true">Hold'em</button>
+            <button type="button" role="radio" data-game-opt="chess" aria-checked="false">Chess</button>
+            <button type="button" role="radio" data-game-opt="chess960" aria-checked="false">Chess960</button>
+            <button type="button" role="radio" data-game-opt="perudo" aria-checked="false">Liar's Dice</button>
+          </div>
+        </div>
 
         <div class="gm-field">
           <div class="gm-field-row">
-            <span>Seats</span>
-            <div class="gm-seat-count-btns" id="gm-seat-count-btns">
-              <button type="button" class="gm-btn" id="gm-rem-seat">− Seat</button>
-              <button type="button" class="gm-btn" id="gm-add-seat">+ Seat</button>
+            <span class="gm-field-lbl">Players <span class="gm-field-hint" id="gm-seat-summary"></span></span>
+            <div class="gm-seat-count-btns" id="gm-seat-actions" data-align-row>
+              <button type="button" class="gm-btn" id="gm-fill-ai" hidden>Seat live AIs</button>
+              <button type="button" class="gm-btn" id="gm-add-seat">+ Add seat</button>
             </div>
           </div>
-          <div class="gm-seat-pickers" id="gm-seat-pickers"></div>
+          <div class="gm-seat-rows" id="gm-seat-pickers"></div>
         </div>
 
         <div class="gm-field-grid">
-          <label class="gm-field">
-            <span>Commentator (optional)</span>
-            <select class="gm-select" id="gm-f-narrator"></select>
-          </label>
-          <label class="gm-field">
-            <span>Turn clock (sec)</span>
-            <input type="number" class="gm-input" id="gm-f-clock" min="10" max="600" value="45">
-          </label>
+          <div class="gm-field">
+            <span class="gm-field-lbl">Commentator <span class="gm-field-hint">(optional)</span></span>
+            <button type="button" class="gm-picker-btn" id="gm-narrator-btn" aria-haspopup="listbox" aria-expanded="false"></button>
+          </div>
+          <div class="gm-field">
+            <span class="gm-field-lbl">Turn clock</span>
+            <div class="gm-seg gm-seg-clock" id="gm-f-clock-seg" role="radiogroup" aria-label="Turn clock">
+              <button type="button" role="radio" data-clock-opt="30" aria-checked="false">30s</button>
+              <button type="button" role="radio" data-clock-opt="45" aria-checked="true">45s</button>
+              <button type="button" role="radio" data-clock-opt="90" aria-checked="false">90s</button>
+              <button type="button" role="radio" data-clock-opt="180" aria-checked="false">3m</button>
+            </div>
+          </div>
         </div>
+
+        <label class="gm-field">
+          <span class="gm-field-lbl">Table title <span class="gm-field-hint">(optional)</span></span>
+          <input type="text" class="gm-input" id="gm-f-title" maxlength="120" placeholder="Auto-named from players if left blank">
+        </label>
       </div>
 
       <div class="gm-dlg-foot">
@@ -289,6 +297,13 @@
         <button type="submit" class="gm-btn gm-btn-primary" id="gm-dlg-submit">Start table</button>
       </div>
     </form>
+
+    <div class="gm-popover" id="gm-actor-popover" role="dialog" aria-label="Choose participant" hidden>
+      <div class="gm-pop-head">
+        <input type="search" class="gm-input" id="gm-pop-search" placeholder="Filter by name, CLI or workspace…" autocomplete="off">
+      </div>
+      <div class="gm-pop-list" id="gm-pop-list" role="listbox"></div>
+    </div>
   </dialog>
 
   <script src="arena.js"></script>

@@ -4,7 +4,7 @@
 
 ## What each participant does
 
-- **People** open **Games** in any enabled workspace (or the **Game table** panel beside an agent), play against Assistants, agent CLIs or zero-token local sparring bots, switch baize and board palettes, pause/resume tables, and watch AI-vs-AI exhibitions in **Spectator** mode with 3D perspective card flips and live `inner_thought` streams.
+- **People** open **Games** in any enabled workspace (or the **Game table** panel beside an agent), play against Assistants, agent CLIs or zero-token built-in rule bots (no LLM), switch baize and board palettes, pause/resume tables, and watch AI-vs-AI exhibitions in **Spectator** mode with 3D perspective card flips and live `inner_thought` streams.
 - **Agents & Assistants** use the `arena` capability (`lobby`, `create`, `state`, `act`, `history`, `save-replay`) over `picode-tools/1`. Each seat receives only its own private hole cards or dice cup, legal actions, clock and sanitized public table talk — never an opponent's hidden state.
 - **COGNIX[WS]** runs the single SQLite writer (`process.mjs`), authenticates tool callers through the extension broker (`req.context.agent`), enforces turn clocks and 3-strike illegal-move limits, updates Bradley–Terry ratings, and validates `ext:games/replay` (`replay.json`) artifacts against their SHA-256 seed commitments.
 
