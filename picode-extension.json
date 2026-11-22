@@ -1,0 +1,269 @@
+{
+  "id": "games",
+  "name": "Games Arena",
+  "version": "0.1.0",
+  "apiVersion": 12,
+  "publisher": "COGNIX[WS]",
+  "description": "Chess, No-Limit Hold'em and Liar's Dice where people, Assistants and agent CLIs play at the same table, with deterministic refereeing and replay artifacts.",
+  "icon": "icons/games.svg",
+  "permissions": [
+    "workspaces:read",
+    "agents:read",
+    "messages:send",
+    "events:publish",
+    "inbox:write",
+    "artifacts:read"
+  ],
+  "settings": [
+    {
+      "key": "shot_clock_sec",
+      "label": "Default turn clock (seconds)",
+      "type": "number",
+      "default": 45,
+      "description": "Seconds each automated seat has to act before auto-check or auto-fold applies."
+    },
+    {
+      "key": "max_hands",
+      "label": "Default Hold'em hand cap",
+      "type": "number",
+      "default": 25,
+      "description": "Maximum hands per No-Limit Hold'em match so unattended matches never run indefinitely."
+    },
+    {
+      "key": "inbox_summary",
+      "label": "Notify Inbox when a match finishes or pauses",
+      "type": "boolean",
+      "default": true,
+      "description": "Adds one non-blocking FYI note to your Inbox when a match finishes or pauses after consecutive timeouts."
+    }
+  ],
+  "storage": {
+    "migrations": "storage/migrations"
+  },
+  "process": {
+    "command": "node",
+    "args": [
+      "--disable-warning=ExperimentalWarning",
+      "${extensionDir}/process.mjs"
+    ]
+  },
+  "ui": {
+    "pages": [
+      {
+        "id": "arena",
+        "title": "Games Arena",
+        "path": "ui/arena.html"
+      },
+      {
+        "id": "replay",
+        "title": "Game Replay",
+        "path": "ui/replay.html"
+      }
+    ]
+  },
+  "contributes": {
+    "workspace": {
+      "title": "Games",
+      "page": "arena"
+    },
+    "panels": [
+      {
+        "id": "table",
+        "title": "Game table",
+        "page": "arena"
+      }
+    ],
+    "artifactKinds": [
+      {
+        "kind": "replay",
+        "title": "Game replay",
+        "entry": "replay.json",
+        "page": "replay"
+      }
+    ],
+    "guides": [
+      {
+        "id": "start-a-match",
+        "title": "Play a match with your agents",
+        "summary": "Seat yourself, an Assistant or any agent CLI at a Chess, Hold'em or Liar's Dice table.",
+        "steps": [
+          {
+            "title": "Pick the game and seats",
+            "body": "Open Games Arena, choose Chess, Hold'em or Liar's Dice, and assign each seat to yourself, an Assistant, an agent CLI or a local sparring bot.",
+            "page": "arena"
+          },
+          {
+            "title": "Watch or play with Fog of War",
+            "body": "While you play a live hand, opponent cards stay sealed. In AI-vs-AI matches or finished hands, switch to Spectator to flip cards in 3D and read inner thoughts.",
+            "page": "arena"
+          }
+        ]
+      }
+    ]
+  },
+  "agent": {
+    "executor": {
+      "protocol": "picode-tools/1",
+      "command": "node",
+      "args": [
+        "--disable-warning=ExperimentalWarning",
+        "${extensionDir}/execute.mjs"
+      ]
+    },
+    "capabilities": [
+      {
+        "id": "arena",
+        "label": "Play table games",
+        "description": "Create or inspect tables in your workspace, read your authenticated seat's private cards or dice, submit moves validated by the referee with optional public table talk and sealed inner thoughts, and export verified replay files.",
+        "tools": [
+          {
+            "id": "lobby",
+            "description": "List open, active and finished tables plus the Bradley-Terry leaderboard in your workspace.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "workspace": {
+                  "type": "string",
+                  "description": "Optional workspace id; defaults to your workspace."
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["active", "paused", "finished", "all"],
+                  "description": "Filter matches by status. Defaults to all."
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          {
+            "id": "create",
+            "description": "Create and start a Chess, No-Limit Hold'em or Liar's Dice table, opening the Game table panel beside you.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "game": {
+                  "type": "string",
+                  "enum": ["chess", "chess960", "holdem", "perudo"],
+                  "description": "Game ruleset to play."
+                },
+                "title": {
+                  "type": "string",
+                  "maxLength": 120,
+                  "description": "Optional table title."
+                },
+                "seats": {
+                  "type": "array",
+                  "description": "Players in seat order: 'owner' (the person), 'bot' (local sparring bot), or an agent/Assistant id or name.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "minItems": 2,
+                  "maxItems": 8
+                },
+                "narrator": {
+                  "type": "string",
+                  "description": "Optional Assistant id or name for high-tension commentary."
+                },
+                "shot_clock_sec": {
+                  "type": "integer",
+                  "minimum": 10,
+                  "maximum": 600,
+                  "description": "Seconds per turn before auto-check/fold."
+                }
+              },
+              "required": ["game", "seats"],
+              "additionalProperties": false
+            }
+          },
+          {
+            "id": "state",
+            "description": "Read your authenticated seat's private state, legal moves, clock and public table talk. Opponent hole cards and sealed inner thoughts stay hidden until showdown.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "match_id": {
+                  "type": "string",
+                  "description": "Match id."
+                }
+              },
+              "required": ["match_id"],
+              "additionalProperties": false
+            }
+          },
+          {
+            "id": "act",
+            "description": "Submit your move (e.g. 'e4', 'Nf3', 'O-O' in Chess; 'check', 'call', 'fold', 'raise 200', 'allin' in Hold'em; 'bid 4x5' or 'dudo' in Perudo; or 'narrate' when seated as commentator), with optional public table_talk and a sealed inner_thought revealed only to spectators and at showdown.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "match_id": {
+                  "type": "string",
+                  "description": "Match id."
+                },
+                "action": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "description": "Move string from legal_actions, or 'narrate' for the commentator seat."
+                },
+                "table_talk": {
+                  "type": "string",
+                  "maxLength": 240,
+                  "description": "Optional short public remark shown at the table to all players."
+                },
+                "inner_thought": {
+                  "type": "string",
+                  "maxLength": 280,
+                  "description": "Optional private strategic note sealed in the database until the hand or round ends."
+                }
+              },
+              "required": ["match_id", "action"],
+              "additionalProperties": false
+            }
+          },
+          {
+            "id": "history",
+            "description": "Read completed rounds, moves and showdown reveals of a match.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "match_id": {
+                  "type": "string",
+                  "description": "Match id."
+                },
+                "limit": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 100
+                }
+              },
+              "required": ["match_id"],
+              "additionalProperties": false
+            }
+          },
+          {
+            "id": "save_replay",
+            "description": "Save a finished match as a SHA-256 verified replay record and optionally write replay.json to a directory for publishing as ext:games/replay.",
+            "inputSchema": {
+              "type": "object",
+              "properties": {
+                "match_id": {
+                  "type": "string",
+                  "description": "Match id."
+                },
+                "out_dir": {
+                  "type": "string",
+                  "description": "Optional temporary directory where replay.json should be written for artifact publishing."
+                }
+              },
+              "required": ["match_id"],
+              "additionalProperties": false
+            }
+          }
+        ]
+      }
+    ],
+    "skills": [
+      "skills/games"
+    ]
+  }
+}

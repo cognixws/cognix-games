@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Games Arena</title>
+  <link rel="icon" href="../icons/games.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../__picode/tokens.css">
+  <link rel="stylesheet" href="arena.css">
+</head>
+<body>
+  <div class="gm-app" id="gm-app">
+    <header class="gm-topbar">
+      <div class="gm-brand">
+        <button type="button" class="gm-btn gm-btn-ghost" id="gm-back-btn" hidden aria-label="Back to lobby">
+          <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Lobby</span>
+        </button>
+        <div class="gm-title-wrap">
+          <span class="gm-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="11" height="15" rx="2.2"/><rect x="10" y="5" width="11" height="15" rx="2.2"/><path d="M15.5 10.2 17.6 12.5 15.5 14.8 13.4 12.5Z"/></svg>
+          </span>
+          <div>
+            <h1 class="gm-h1" id="gm-page-title">Games Arena</h1>
+            <p class="gm-sub" id="gm-page-sub">People, Assistants and agent CLIs at the same table</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="gm-top-actions" id="gm-top-actions">
+        <div class="gm-seg" id="gm-lobby-tabs" role="tablist" aria-label="Arena sections">
+          <button type="button" role="tab" data-lobby-tab="tables" aria-selected="true">Tables</button>
+          <button type="button" role="tab" data-lobby-tab="ratings" aria-selected="false">Ratings</button>
+          <button type="button" role="tab" data-lobby-tab="replays" aria-selected="false">Replays</button>
+        </div>
+        <button type="button" class="gm-btn gm-btn-primary" id="gm-open-new">
+          <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          <span>New match</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="gm-alert" id="gm-error-bar" role="alert" hidden>
+      <span id="gm-error-text"></span>
+      <button type="button" class="gm-btn" id="gm-error-retry">Retry</button>
+    </div>
+
+    <!-- LOBBY VIEW -->
+    <main class="gm-lobby" id="gm-view-lobby">
+      <section class="gm-presets" aria-label="Quick start tables">
+        <button type="button" class="gm-preset" data-preset="holdem">
+          <span class="gm-preset-swatch is-emerald" aria-hidden="true">♠♥</span>
+          <span class="gm-preset-copy">
+            <strong>Hold'em 4-Max</strong>
+            <span>You vs 3 sparring bots · $2,000 stacks</span>
+          </span>
+        </button>
+        <button type="button" class="gm-preset" data-preset="chess">
+          <span class="gm-preset-swatch is-walnut" aria-hidden="true">♔♞</span>
+          <span class="gm-preset-copy">
+            <strong>Chess Match</strong>
+            <span>You (White) vs Sparring Bot · Staunton board</span>
+          </span>
+        </button>
+        <button type="button" class="gm-preset" data-preset="perudo">
+          <span class="gm-preset-swatch is-dice" aria-hidden="true">⚄⚀</span>
+          <span class="gm-preset-copy">
+            <strong>Liar's Dice</strong>
+            <span>You vs 2 sparring bots · Wild ones</span>
+          </span>
+        </button>
+        <button type="button" class="gm-preset" data-preset="ai-showcase">
+          <span class="gm-preset-swatch is-sapphire" aria-hidden="true">◈</span>
+          <span class="gm-preset-copy">
+            <strong>Bot Exhibition</strong>
+            <span>Watch Spectator 3D flips &amp; inner thoughts</span>
+          </span>
+        </button>
+      </section>
+
+      <section id="gm-panel-tables" role="tabpanel">
+        <div id="gm-tables-list" class="gm-table-grid"></div>
+      </section>
+
+      <section id="gm-panel-ratings" role="tabpanel" hidden>
+        <div id="gm-ratings-wrap"></div>
+      </section>
+
+      <section id="gm-panel-replays" role="tabpanel" hidden>
+        <div id="gm-replays-wrap"></div>
+      </section>
+    </main>
+
+    <!-- LIVE MATCH VIEW -->
+    <main class="gm-match-shell" id="gm-view-match" hidden>
+      <div class="gm-match-bar" id="gm-match-bar">
+        <div class="gm-match-meta">
+          <span class="gm-badge" id="gm-match-status-badge">Active</span>
+          <span class="gm-meta-text" id="gm-match-turn-label"></span>
+        </div>
+
+        <div class="gm-match-controls">
+          <!-- Surface theme selector -->
+          <select class="gm-select" id="gm-surface-select" aria-label="Surface theme"></select>
+
+          <!-- 4-color deck toggle for Hold'em -->
+          <button type="button" class="gm-btn" id="gm-fourcolor-btn" aria-pressed="true" hidden>4-Color Deck</button>
+
+          <!-- Fog of War / Spectator toggle -->
+          <button type="button" class="gm-btn" id="gm-spectator-btn" aria-pressed="false">
+            <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span id="gm-spectator-label">Fog of War</span>
+          </button>
+
+          <button type="button" class="gm-btn" id="gm-pause-btn">Pause</button>
+          <button type="button" class="gm-btn" id="gm-save-replay-btn" hidden>Save replay</button>
+        </div>
+      </div>
+
+      <div class="gm-pause-banner" id="gm-pause-banner" hidden>
+        <span id="gm-pause-reason"></span>
+        <button type="button" class="gm-btn gm-btn-primary" id="gm-resume-btn">Resume match</button>
+      </div>
+
+      <div class="gm-stage-grid">
+        <div class="gm-stage-main">
+          <!-- HOLD'EM STAGE -->
+          <section class="gm-holdem-stage" id="gm-stage-holdem" data-felt="emerald" data-deck="4color" hidden>
+            <div class="gm-poker-rail">
+              <div class="gm-poker-felt">
+                <div class="gm-seats-layer" id="gm-holdem-seats"></div>
+                <div class="gm-poker-center">
+                  <div class="gm-pot-pill">
+                    <span class="gm-chip-stack" aria-hidden="true">
+                      <i class="gm-chip is-red"></i>
+                      <i class="gm-chip is-blue"></i>
+                      <i class="gm-chip is-gold"></i>
+                    </span>
+                    <span class="gm-pot-label">POT</span>
+                    <strong class="gm-pot-amount" id="gm-holdem-pot">$0</strong>
+                    <span class="gm-street-tag" id="gm-holdem-street">PREFLOP</span>
+                  </div>
+                  <div class="gm-community-row" id="gm-holdem-board" aria-label="Community cards"></div>
+                  <div class="gm-Seed-line" id="gm-holdem-commit"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- CHESS STAGE -->
+          <section class="gm-chess-stage" id="gm-stage-chess" data-board="walnut" hidden>
+            <div class="gm-chess-layout">
+              <div class="gm-eval-bar" aria-label="Material evaluation">
+                <div class="gm-eval-white" id="gm-chess-eval-fill"></div>
+                <span class="gm-eval-score" id="gm-chess-eval-text">0.0</span>
+              </div>
+              <div class="gm-chess-column">
+                <div class="gm-player-strip" id="gm-chess-top-player"></div>
+                <div class="gm-board-frame" id="gm-chess-frame">
+                  <div class="gm-board-squares" id="gm-chess-squares"></div>
+                  <div class="gm-board-pieces" id="gm-chess-pieces"></div>
+                </div>
+                <div class="gm-player-strip" id="gm-chess-bottom-player"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- PERUDO STAGE -->
+          <section class="gm-perudo-stage" id="gm-stage-perudo" hidden>
+            <div class="gm-dice-arena">
+              <div class="gm-dice-banner" id="gm-perudo-banner"></div>
+              <div class="gm-dice-seats" id="gm-perudo-seats"></div>
+            </div>
+          </section>
+
+          <!-- UNIFIED 36px ACTION DOCK -->
+          <form class="gm-action-dock" id="gm-action-form" novalidate>
+            <div class="gm-action-controls" id="gm-action-controls"></div>
+            <div class="gm-talk-row" id="gm-talk-row">
+              <input type="text" class="gm-input" id="gm-talk-input" maxlength="240" placeholder="Optional table talk (visible to all seats)">
+              <span class="gm-inline-err" id="gm-action-err" role="alert"></span>
+            </div>
+          </form>
+        </div>
+
+        <!-- SIDE FEED / PGN / THOUGHTS INSPECTOR -->
+        <aside class="gm-side-panel" aria-label="Table feed and history">
+          <div class="gm-side-head">
+            <h2 class="gm-h2" id="gm-side-title">Table feed</h2>
+            <span class="gm-seed-badge" id="gm-seed-badge" title="Deterministic SHA-256 commit-reveal">SHA-256 Fair</span>
+          </div>
+          <div class="gm-pgn-box" id="gm-pgn-box" hidden></div>
+          <div class="gm-feed-list" id="gm-feed-list"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <!-- NEW MATCH MODAL (native <dialog>, bottom sheet on <=640px) -->
+  <dialog class="gm-dialog" id="gm-new-dialog" aria-labelledby="gm-dlg-title">
+    <form id="gm-new-form" novalidate>
+      <div class="gm-dlg-head">
+        <h2 id="gm-dlg-title">New match</h2>
+        <button type="button" class="gm-btn gm-btn-ghost" id="gm-dlg-close" aria-label="Close">
+          <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="gm-dlg-body">
+        <label class="gm-field">
+          <span>Game</span>
+          <select class="gm-select" id="gm-f-game">
+            <option value="holdem">No-Limit Hold'em (2–6 seats)</option>
+            <option value="chess">Chess (Standard)</option>
+            <option value="chess960">Chess960 (Freestyle)</option>
+            <option value="perudo">Liar's Dice / Perudo (2–6 seats)</option>
+          </select>
+        </label>
+
+        <label class="gm-field">
+          <span>Table title (optional)</span>
+          <input type="text" class="gm-input" id="gm-f-title" maxlength="120" placeholder="Friday Night Hold'em">
+        </label>
+
+        <div class="gm-field">
+          <div class="gm-field-row">
+            <span>Seats</span>
+            <div class="gm-seat-count-btns" id="gm-seat-count-btns">
+              <button type="button" class="gm-btn" id="gm-rem-seat">− Seat</button>
+              <button type="button" class="gm-btn" id="gm-add-seat">+ Seat</button>
+            </div>
+          </div>
+          <div class="gm-seat-pickers" id="gm-seat-pickers"></div>
+        </div>
+
+        <div class="gm-field-grid">
+          <label class="gm-field">
+            <span>Commentator (optional)</span>
+            <select class="gm-select" id="gm-f-narrator"></select>
+          </label>
+          <label class="gm-field">
+            <span>Turn clock (sec)</span>
+            <input type="number" class="gm-input" id="gm-f-clock" min="10" max="600" value="45">
+          </label>
+        </div>
+      </div>
+
+      <div class="gm-dlg-foot">
+        <span class="gm-inline-err" id="gm-dlg-err" role="alert"></span>
+        <button type="button" class="gm-btn" id="gm-dlg-cancel">Cancel</button>
+        <button type="submit" class="gm-btn gm-btn-primary" id="gm-dlg-submit">Start table</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="arena.js"></script>
+</body>
+</html>

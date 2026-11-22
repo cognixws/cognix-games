@@ -1,0 +1,12 @@
+{
+  "name": "cognix-games",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Table games arena for COGNIX[WS]: Chess, No-Limit Hold'em and Liar's Dice for people, Assistants and agent CLIs.",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.mjs",
+    "check": "node --check process.mjs && node --check execute.mjs && node --check store.mjs && node --check lib/chess.mjs && node --check lib/holdem.mjs && node --check lib/perudo.mjs && node --check lib/ratings.mjs && node --check ui/arena.js && node --check ui/replay.js"
+  }
+}

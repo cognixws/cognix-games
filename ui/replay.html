@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Game Replay</title>
+  <link rel="icon" href="../icons/games.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../__picode/tokens.css">
+  <link rel="stylesheet" href="arena.css">
+</head>
+<body>
+  <div class="gm-app">
+    <header class="gm-topbar">
+      <div class="gm-brand">
+        <a class="gm-btn gm-btn-ghost" id="rp-back-link" href="arena.html">
+          <svg class="gm-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+          <span>Arena</span>
+        </a>
+        <div class="gm-title-wrap">
+          <span class="gm-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          </span>
+          <div>
+            <h1 class="gm-h1" id="rp-title">Game Replay</h1>
+            <p class="gm-sub" id="rp-sub">Deterministic SHA-256 audit &amp; timeline</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="gm-top-actions">
+        <span class="gm-seed-badge" id="rp-verify-badge">Checking SHA-256…</span>
+      </div>
+    </header>
+
+    <div class="gm-alert" id="rp-err" role="alert" hidden>
+      <span id="rp-err-text"></span>
+    </div>
+
+    <main id="rp-main" class="gm-lobby" hidden>
+      <section class="gm-action-dock">
+        <div class="gm-action-controls">
+          <button type="button" class="gm-btn" id="rp-first">|&lt;</button>
+          <button type="button" class="gm-btn" id="rp-prev">&lt; Prev</button>
+          <button type="button" class="gm-btn gm-btn-primary" id="rp-play">Play</button>
+          <button type="button" class="gm-btn" id="rp-next">Next &gt;</button>
+          <button type="button" class="gm-btn" id="rp-last">&gt;|</button>
+          <span class="gm-meta-text" id="rp-step-label">Step 0 / 0</span>
+        </div>
+      </section>
+
+      <div class="gm-stage-grid">
+        <section class="gm-card" id="rp-spot-card">
+          <div class="gm-card-top">
+            <div>
+              <h2 class="gm-card-title" id="rp-spot-who">Opening table</h2>
+              <p class="gm-card-sub" id="rp-spot-summary"></p>
+            </div>
+            <span class="gm-badge" id="rp-spot-kind">start</span>
+          </div>
+          <div id="rp-spot-extra"></div>
+          <div class="gm-card-foot">
+            <span class="gm-meta-text" id="rp-commit-text"></span>
+          </div>
+        </section>
+
+        <aside class="gm-side-panel" aria-label="Full replay timeline">
+          <div class="gm-side-head">
+            <h2 class="gm-h2">Timeline</h2>
+            <span class="gm-meta-text" id="rp-winner-tag"></span>
+          </div>
+          <div class="gm-feed-list" id="rp-list"></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <script src="replay.js"></script>
+</body>
+</html>
