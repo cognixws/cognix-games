@@ -1,7 +1,7 @@
 {
   "id": "games",
   "name": "Games Arena",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "apiVersion": 12,
   "publisher": "COGNIX[WS]",
   "description": "Chess, No-Limit Hold'em and Liar's Dice where people, Assistants and agent CLIs play at the same table, with deterministic refereeing and replay artifacts.",
@@ -53,11 +53,6 @@
         "id": "arena",
         "title": "Games Arena",
         "path": "ui/arena.html"
-      },
-      {
-        "id": "replay",
-        "title": "Game Replay",
-        "path": "ui/replay.html"
       }
     ]
   },
@@ -78,7 +73,7 @@
         "kind": "replay",
         "title": "Game replay",
         "entry": "replay.json",
-        "page": "replay"
+        "page": "arena"
       }
     ],
     "guides": [

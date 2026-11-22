@@ -2,7 +2,7 @@
 
 ## Overview
 
-`cognix-games` runs a single Node.js background process (`process.mjs`) paired with a thin `picode-tools/1` executor (`execute.mjs`) and two sandboxed UI pages (`ui/arena.html`, `ui/replay.html`).
+`cognix-games` runs a single Node.js background process (`process.mjs`) paired with a thin `picode-tools/1` executor (`execute.mjs`) and one unified sandboxed UI page (`ui/arena.html`) that serves both live play/lobby and `ext:games/replay` artifacts (`context.source === "artifact"`), keeping a single **Games Arena** tile in **Apps**.
 
 - **Person**: opens **Games** in a workspace tab or the **Game table** panel beside an agent, starts matches from presets or the `<dialog>` builder, plays turns directly or watches AI exhibitions in **Spectator** mode, and inspects verified `ext:games/replay` artifacts.
 - **Agent / Assistant**: calls `arena` tools (`lobby`, `create`, `state`, `act`, `history`, `save-replay`). `execute.mjs` forwards the broker-authenticated `req.context.agent` identity over loopback (`127.0.0.1`) to `process.mjs` using an ephemeral 0600 key in `<dataDir>/process.json`.

@@ -10,6 +10,7 @@
   const ctxDoor = await doors.use("context");
   const procDoor = await doors.use("process");
   const eventsDoor = await doors.use("events");
+  const artDoor = await doors.use("artifact");
 
   if (themeDoor?.current?.()) {
     document.documentElement.setAttribute("data-theme", themeDoor.current());
@@ -20,9 +21,13 @@
 
   const S = {
     workspaceId: "",
-    view: "lobby", // "lobby" | "match"
+    artifactMode: Boolean(artDoor?.read || ctxDoor?.current?.()?.source === "artifact"),
+    view: "lobby", // "lobby" | "match" | "replay"
     lobbyTab: "tables", // "tables" | "ratings" | "replays"
     matchId: null,
+    replay: null,
+    replayIdx: 0,
+    replayTimer: null,
     spectator: false,
     fourColor: true,
     feltTheme: "emerald",
@@ -37,6 +42,7 @@
   };
 
   function syncContext(ctx) {
+    if (ctx?.source === "artifact") S.artifactMode = true;
     const ws = ctx?.workspace?.id || ctx?.workspaceId || "";
     if (ws && ws !== S.workspaceId) {
       S.workspaceId = ws;
@@ -148,10 +154,14 @@
 
   /* ── Lobby Rendering ─────────────────────────────────────── */
   function renderLobby() {
+    stopReplayTimer();
     document.getElementById("gm-view-lobby").hidden = false;
     document.getElementById("gm-view-match").hidden = true;
+    document.getElementById("gm-view-replay").hidden = true;
     document.getElementById("gm-back-btn").hidden = true;
     document.getElementById("gm-lobby-tabs").hidden = false;
+    document.getElementById("gm-open-new").hidden = false;
+    document.getElementById("gm-artifact-badge").hidden = true;
     document.getElementById("gm-page-title").textContent = "Games Arena";
     document.getElementById("gm-page-sub").textContent = "People, Assistants and agent CLIs at the same table";
 
@@ -247,10 +257,82 @@
           </div>
           <div class="gm-card-foot">
             <span class="gm-meta-text">${esc(rp.id)}</span>
-            <a class="gm-btn" href="replay.html?id=${encodeURIComponent(rp.id)}">Open replay</a>
+            <button type="button" class="gm-btn" data-open-replay="${esc(rp.id)}">Open replay</button>
           </div>
         </article>`).join("")}</div>`;
     }
+  }
+
+  function stopReplayTimer() {
+    if (S.replayTimer) {
+      clearInterval(S.replayTimer);
+      S.replayTimer = null;
+      const playBtn = document.getElementById("rp-play");
+      if (playBtn) playBtn.textContent = "Play";
+    }
+  }
+
+  function renderReplay() {
+    const rpl = S.replay;
+    if (!rpl) return;
+
+    document.getElementById("gm-view-lobby").hidden = true;
+    document.getElementById("gm-view-match").hidden = true;
+    document.getElementById("gm-view-replay").hidden = false;
+    document.getElementById("gm-back-btn").hidden = S.artifactMode;
+    document.getElementById("gm-lobby-tabs").hidden = true;
+    document.getElementById("gm-open-new").hidden = S.artifactMode;
+
+    const evs = rpl.events || [];
+    S.replayIdx = Math.max(0, Math.min(S.replayIdx, Math.max(0, evs.length - 1)));
+    const cur = evs[S.replayIdx];
+
+    document.getElementById("gm-page-title").textContent = rpl.title || "Game Replay";
+    document.getElementById("gm-page-sub").textContent = `${String(rpl.game || "").toUpperCase()} · ${rpl.seats?.map((s) => s.name).join(" × ") || ""}`;
+
+    const verified = Boolean(rpl.verification?.verified);
+    for (const id of ["rp-verify-badge", "gm-artifact-badge"]) {
+      const b = document.getElementById(id);
+      b.textContent = verified ? "SHA-256 Seed Verified" : "Unverified Seed";
+      b.style.color = verified ? "var(--gm-ok)" : "var(--gm-danger)";
+    }
+    document.getElementById("gm-artifact-badge").hidden = !S.artifactMode;
+    document.getElementById("rp-verify-badge").hidden = S.artifactMode;
+
+    document.getElementById("rp-step-label").textContent = `Event ${evs.length ? S.replayIdx + 1 : 0} / ${evs.length}`;
+    document.getElementById("rp-first").disabled = S.replayIdx <= 0;
+    document.getElementById("rp-prev").disabled = S.replayIdx <= 0;
+    document.getElementById("rp-next").disabled = S.replayIdx >= evs.length - 1;
+    document.getElementById("rp-last").disabled = S.replayIdx >= evs.length - 1;
+    document.getElementById("rp-winner-tag").textContent = rpl.winner?.summary || "";
+    document.getElementById("rp-commit-text").textContent = `Commit: ${(rpl.verification?.seedCommit || "").slice(0, 24)}…`;
+
+    if (cur) {
+      const who = cur.public?.seatName || cur.public?.speaker || cur.actorId;
+      document.getElementById("rp-spot-who").textContent = `#${cur.seq} · ${who}`;
+      document.getElementById("rp-spot-kind").textContent = cur.kind;
+      document.getElementById("rp-spot-summary").textContent = cur.public?.summary || cur.public?.text || cur.public?.error || cur.public?.action || "";
+
+      let extra = "";
+      if (cur.public?.talk) extra += `<p class="gm-feed-talk">Public table talk: "${esc(cur.public.talk)}"</p>`;
+      if (cur.sealed?.innerThought) extra += `<p class="gm-feed-thought">Revealed inner thought: "${esc(cur.sealed.innerThought)}"</p>`;
+      document.getElementById("rp-spot-extra").innerHTML = extra;
+    }
+
+    const listEl = document.getElementById("rp-list");
+    listEl.innerHTML = evs.map((e, i) => {
+      const who = e.public?.seatName || e.public?.speaker || e.actorId;
+      const body = e.public?.summary || e.public?.text || e.public?.action || "";
+      const activeStyle = i === S.replayIdx ? 'style="background:var(--gm-surface-2);padding:6px 8px;border-radius:6px"' : "";
+      return `
+        <div class="gm-feed-item" data-rp-step="${i}" ${activeStyle}>
+          <div class="gm-feed-top"><span><strong>${esc(who)}</strong></span><span>#${e.seq}</span></div>
+          <div>${esc(body)}</div>
+          ${e.sealed?.innerThought ? `<div class="gm-feed-thought">${esc(e.sealed.innerThought)}</div>` : ""}
+        </div>`;
+    }).join("");
+    const activeRow = listEl.querySelector(`[data-rp-step="${S.replayIdx}"]`);
+    activeRow?.scrollIntoView?.({ block: "nearest" });
   }
 
   /* ── Live Match Rendering (Persistent DOM for 60fps Motion) ── */
@@ -275,11 +357,15 @@
   function renderMatch() {
     const m = S.match;
     if (!m) return;
+    stopReplayTimer();
 
     document.getElementById("gm-view-lobby").hidden = true;
     document.getElementById("gm-view-match").hidden = false;
+    document.getElementById("gm-view-replay").hidden = true;
     document.getElementById("gm-back-btn").hidden = false;
     document.getElementById("gm-lobby-tabs").hidden = true;
+    document.getElementById("gm-open-new").hidden = false;
+    document.getElementById("gm-artifact-badge").hidden = true;
     document.getElementById("gm-page-title").textContent = m.title;
     document.getElementById("gm-page-sub").textContent = `${m.game.toUpperCase()} · Match ${m.id}`;
 
@@ -723,6 +809,23 @@
   /* ── Actions & Polling ───────────────────────────────────── */
   async function refresh() {
     try {
+      if (S.artifactMode) {
+        if (!S.replay && artDoor?.read) {
+          const file = await artDoor.read("replay.json");
+          const raw = file?.text || (file?.base64 ? atob(file.base64) : "");
+          S.replay = JSON.parse(raw);
+          S.replayIdx = 0;
+          S.view = "replay";
+        }
+        showError("");
+        renderReplay();
+        return;
+      }
+      if (S.view === "replay" && S.replay) {
+        showError("");
+        renderReplay();
+        return;
+      }
       const q = S.workspaceId ? `?workspace=${encodeURIComponent(S.workspaceId)}` : "";
       if (S.view === "match" && S.matchId) {
         const res = await api(`/match?id=${encodeURIComponent(S.matchId)}&spectator=${S.spectator ? "1" : "0"}`);
@@ -735,6 +838,19 @@
         showError("");
         renderLobby();
       }
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  async function openReplayById(id) {
+    try {
+      const res = await api(`/replay?id=${encodeURIComponent(id)}`);
+      S.replay = res.replay;
+      S.replayIdx = 0;
+      S.view = "replay";
+      showError("");
+      renderReplay();
     } catch (err) {
       showError(err.message);
     }
@@ -897,8 +1013,10 @@
   });
 
   document.getElementById("gm-back-btn").addEventListener("click", () => {
+    stopReplayTimer();
     S.view = "lobby";
     S.matchId = null;
+    S.replay = null;
     void refresh();
   });
 
@@ -932,14 +1050,49 @@
     if (!S.matchId) return;
     try {
       const res = await api("/match/replay", { matchId: S.matchId });
-      window.location.href = `replay.html?id=${encodeURIComponent(res.replay.id)}`;
+      S.replay = res.replay;
+      S.replayIdx = 0;
+      S.view = "replay";
+      renderReplay();
     } catch (err) {
       showError(err.message);
     }
   });
 
+  document.getElementById("rp-first").addEventListener("click", () => { stopReplayTimer(); S.replayIdx = 0; renderReplay(); });
+  document.getElementById("rp-prev").addEventListener("click", () => { stopReplayTimer(); S.replayIdx = Math.max(0, S.replayIdx - 1); renderReplay(); });
+  document.getElementById("rp-next").addEventListener("click", () => { stopReplayTimer(); S.replayIdx += 1; renderReplay(); });
+  document.getElementById("rp-last").addEventListener("click", () => { stopReplayTimer(); S.replayIdx = 999999; renderReplay(); });
+  document.getElementById("rp-play").addEventListener("click", () => {
+    if (S.replayTimer) {
+      stopReplayTimer();
+      return;
+    }
+    document.getElementById("rp-play").textContent = "Pause";
+    S.replayTimer = setInterval(() => {
+      if (!S.replay || S.replayIdx >= (S.replay.events?.length || 1) - 1) {
+        stopReplayTimer();
+        return;
+      }
+      S.replayIdx += 1;
+      renderReplay();
+    }, 950);
+  });
+
   // Delegated clicks
   document.addEventListener("click", (e) => {
+    const rpStep = e.target.closest("[data-rp-step]");
+    if (rpStep) {
+      stopReplayTimer();
+      S.replayIdx = Number(rpStep.dataset.rpStep);
+      renderReplay();
+      return;
+    }
+    const openRpl = e.target.closest("[data-open-replay]");
+    if (openRpl) {
+      void openReplayById(openRpl.dataset.openReplay);
+      return;
+    }
     const tabBtn = e.target.closest("[data-lobby-tab]");
     if (tabBtn) {
       S.lobbyTab = tabBtn.dataset.lobbyTab;

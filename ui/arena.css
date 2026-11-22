@@ -1428,6 +1428,9 @@ html, body {
   .gm-stage-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .gm-side-panel {
+    max-height: none;
+  }
 }
 
 @media (max-width: 760px) {

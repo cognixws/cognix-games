@@ -28,6 +28,7 @@
       </div>
 
       <div class="gm-top-actions" id="gm-top-actions">
+        <span class="gm-seed-badge" id="gm-artifact-badge" hidden>SHA-256 Seed Verified</span>
         <div class="gm-seg" id="gm-lobby-tabs" role="tablist" aria-label="Arena sections">
           <button type="button" role="tab" data-lobby-tab="tables" aria-selected="true">Tables</button>
           <button type="button" role="tab" data-lobby-tab="ratings" aria-selected="false">Ratings</button>
@@ -191,6 +192,45 @@
           </div>
           <div class="gm-pgn-box" id="gm-pgn-box" hidden></div>
           <div class="gm-feed-list" id="gm-feed-list"></div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- UNIFIED REPLAY VIEW (in-app & ext:games/replay artifact viewer) -->
+    <main class="gm-lobby" id="gm-view-replay" hidden>
+      <section class="gm-action-dock">
+        <div class="gm-action-controls">
+          <button type="button" class="gm-btn" id="rp-first">|&lt;</button>
+          <button type="button" class="gm-btn" id="rp-prev">&lt; Prev</button>
+          <button type="button" class="gm-btn gm-btn-primary" id="rp-play">Play</button>
+          <button type="button" class="gm-btn" id="rp-next">Next &gt;</button>
+          <button type="button" class="gm-btn" id="rp-last">&gt;|</button>
+          <span class="gm-meta-text" id="rp-step-label">Event 0 / 0</span>
+          <span class="gm-seed-badge" id="rp-verify-badge">SHA-256 Seed Verified</span>
+        </div>
+      </section>
+
+      <div class="gm-stage-grid">
+        <section class="gm-card" id="rp-spot-card">
+          <div class="gm-card-top">
+            <div>
+              <h2 class="gm-card-title" id="rp-spot-who">Opening table</h2>
+              <p class="gm-card-sub" id="rp-spot-summary"></p>
+            </div>
+            <span class="gm-badge" id="rp-spot-kind">start</span>
+          </div>
+          <div id="rp-spot-extra"></div>
+          <div class="gm-card-foot">
+            <span class="gm-meta-text" id="rp-commit-text"></span>
+          </div>
+        </section>
+
+        <aside class="gm-side-panel" aria-label="Full replay timeline">
+          <div class="gm-side-head">
+            <h2 class="gm-h2">Timeline</h2>
+            <span class="gm-meta-text" id="rp-winner-tag"></span>
+          </div>
+          <div class="gm-feed-list" id="rp-list"></div>
         </aside>
       </div>
     </main>
