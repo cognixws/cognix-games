@@ -395,7 +395,7 @@ test("row 11: fetchKnownActors filters out stopped agents, enriches CLI/workspac
 
     const ast = actors.find((a) => a.id === "ast-narrator");
     assert.equal(ast.kind, "assistant");
-    assert.equal(ast.meta, "Assistant · Pi");
+    assert.equal(ast.meta, "Assistant · Ready");
 
     const claude = actors.find((a) => a.id === "ag-claude");
     assert.equal(claude.kind, "agent");

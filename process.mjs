@@ -307,13 +307,14 @@ export function createArenaService(opts = {}) {
         const isAst = a.workspaceId === "__assistant__" || a.workspaceId === "ws_assistant" || String(a.id || "").startsWith("assistant-");
         const cliLabel = formatCliLabel(a.cli);
         if (isAst) {
+          const stateLabel = a.state === "working" ? "Working" : "Ready";
           assistants.push({
             id: a.id,
             name: a.name || a.id,
             kind: "assistant",
-            cli: a.cli || "",
-            cliLabel: cliLabel || "Assistant",
-            meta: cliLabel ? `Assistant · ${cliLabel}` : "Assistant",
+            cli: "assistant",
+            cliLabel: "Assistant",
+            meta: `Assistant · ${stateLabel}`,
             workspaceId: a.workspaceId || "",
             running: true,
             state: a.state || "idle"

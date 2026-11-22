@@ -248,7 +248,7 @@
               <tr>
                 <td>${i + 1}</td>
                 <td><strong>${esc(r.name)}</strong> <span class="gm-meta-text">(${esc(r.kind)})</span></td>
-                <td>${esc(r.cli === "local" ? "Built-in · No LLM" : (r.cli || "Human"))}</td>
+                <td>${esc(r.kind === "bot" || r.cli === "local" ? "Built-in · No LLM" : (r.kind === "assistant" ? "Assistant" : (r.cli || "Human")))}</td>
                 <td><strong>${Math.round(r.rating)}</strong> <span class="gm-meta-text">(${r.stats?.matches || 0}g)</span></td>
                 <td>${r.wins} / ${r.losses} / ${r.draws}</td>
                 <td>${r.stats?.strikes || 0}</td>
