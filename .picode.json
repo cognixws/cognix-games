@@ -1,0 +1,49 @@
+{
+  "extensions": {
+    "devflow": {
+      "flow": 1,
+      "checks": {
+        "syntax": {
+          "run": "npm run check",
+          "when": ["*.mjs", "lib/**", "ui/**"]
+        },
+        "test": {
+          "run": "npm test",
+          "when": ["*.mjs", "lib/**", "storage/**", "test/**", "picode-extension.json"]
+        }
+      },
+      "full": "npm run check && npm test",
+      "everything": ["package.json", ".picode.json", ".github/**"],
+      "rules": [
+        {
+          "when": ["storage/migrations/**"],
+          "need": ["docs/architecture.md"],
+          "why": "Schema changes travel with persistence notes in docs/architecture.md"
+        }
+      ],
+      "modules": ["handoff", "ui-review"],
+      "failure": {
+        "layers": [
+          {
+            "name": "engines",
+            "paths": ["lib/**"],
+            "boundary": "Illegal moves and chip/dice invariants stop at the deterministic referee before state mutates",
+            "tests": ["test/engines.test.mjs"]
+          },
+          {
+            "name": "store",
+            "paths": ["store.mjs", "storage/**"],
+            "boundary": "SQLite runs in DELETE journal mode and recovers active matches as paused on boot",
+            "tests": ["test/service.test.mjs"]
+          },
+          {
+            "name": "api",
+            "paths": ["process.mjs", "execute.mjs"],
+            "boundary": "projectMatch strips hidden state per caller and relay endpoints require X-PiCode-Proxy-Secret or toolKey",
+            "tests": ["test/service.test.mjs"]
+          }
+        ]
+      }
+    }
+  }
+}
